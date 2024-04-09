@@ -19,7 +19,7 @@ class GIN(torch.nn.Module):
                     nn=torch.nn.Sequential(
                         torch.nn.Linear(features, features),
                         torch.nn.ReLU(),
-                        torch.nn.Linear(features, features, bias=(i % GN_FREQ == 0)),
+                        torch.nn.Linear(features, features, bias=(i % GN_FREQ == 0))
                     )
                 )
                 for i in range(layers - 1)
