@@ -124,6 +124,8 @@ class BatchedSparseGraphs:
         return BatchedDenseGraphs.from_graphs(
             list(map(lambda sparse_graph: sparse_graph.to_dense(), self.unbatch()))
         )
+    def edge_index(self) ->torch.LongTensor:
+        return torch.vstack([self._senders, self._receivers])
 
 
 class DenseGraph:

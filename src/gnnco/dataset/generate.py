@@ -24,6 +24,9 @@ def cli():
 )
 @click.option("--n-graphs", required=True, type=int, help="Number of graphs")
 @click.option(
+    "--n-val-graphs", required=True, type=int, help="Number of validation graphs"
+)
+@click.option(
     "--order", required=True, type=int, help="Order of the graphs to generate"
 )
 @click.option(
@@ -35,6 +38,7 @@ def graph_matching_erdos_renyi(
     *,
     output_dir: str | os.PathLike,
     n_graphs: int,
+    n_val_graphs: int,
     order: int,
     density: int,
     noise: float,
@@ -43,41 +47,46 @@ def graph_matching_erdos_renyi(
     """Generate a Graph Matching Dataset by perturbating Erdos-Renyi graphs"""
     os.makedirs(output_dir)
 
-    save_file(
-        {
-            str(i): torch.tensor([order, order], dtype=torch.long)
-            for i in range(n_graphs)
-        },
-        filename=os.path.join(output_dir, "orders.safetensors"),
-    )
-
-    with torch.device("cuda" if cuda else "cpu"):
-        base_graphs = erdos_renyi(n_graphs, order, density / (order - 1))
-        corrupted_graphs = bernoulli_corruption(
-            base_graphs, p_edge=noise, p_nonedge=noise * density / (order - density)
+    def generate_and_save(N, prefix):
+        save_file(
+            {str(i): torch.tensor([order, order], dtype=torch.long) for i in range(N)},
+            filename=os.path.join(output_dir, f"{prefix}-orders.safetensors"),
         )
-        qap_values = {
-            str(i): (
-                base_graphs[i].adj().float() * corrupted_graphs[i].adj().float()
-            ).sum()
-            for i in range(n_graphs)
-        }
 
-    save_file(
-        {str(i): base_graphs[i].edge_index() for i in range(n_graphs)},
-        filename=os.path.join(output_dir, "base-graphs.safetensors"),
-    )
+        with torch.device("cuda" if cuda else "cpu"):
+            base_graphs = erdos_renyi(N, order, density / (order - 1))
+            corrupted_graphs = bernoulli_corruption(
+                base_graphs, p_edge=noise, p_nonedge=noise * density / (order - density)
+            )
+            qap_values = {
+                str(i): (
+                    base_graphs[i].adj().float() * corrupted_graphs[i].adj().float()
+                ).sum()
+                for i in range(N)
+            }
 
-    save_file(
-        {str(i): corrupted_graphs[i].edge_index() for i in range(n_graphs)},
-        filename=os.path.join(output_dir, "corrupted-graphs.safetensors"),
-    )
+        save_file(
+            {str(i): base_graphs[i].edge_index() for i in range(N)},
+            filename=os.path.join(output_dir, f"{prefix}-base-graphs.safetensors"),
+        )
 
-    save_file(
-        qap_values,
-        filename=os.path.join(output_dir, "qap-values.safetensors"),
-    )
+        save_file(
+            {str(i): corrupted_graphs[i].edge_index() for i in range(N)},
+            filename=os.path.join(output_dir, f"{prefix}-corrupted-graphs.safetensors"),
+        )
 
+        save_file(
+            {str(i): torch.ones([order,]) for i in range(N)},
+            filename=os.path.join(output_dir, f"{prefix}-signals.safetensors"),
+        )
+
+        save_file(
+            qap_values,
+            filename=os.path.join(output_dir, f"{prefix}-qap-values.safetensors"),
+        )
+
+    generate_and_save(n_graphs, prefix="train")
+    generate_and_save(n_val_graphs, prefix="val")
 
 def main():
     cli()

@@ -1,0 +1,18 @@
+rye run gnnco-train siamese-gm \
+    --dataset  "data" \
+    --experiment "NE" \
+    --run-name "GIN" \
+    --epochs 1000 \
+    --batch-size 50 \
+    --cpu \
+    --log-frequency 25 \
+    --profile \
+    --model GIN \
+        --layers 5 \
+        --features 50 \
+        --out-features 128 \
+    --optimizer adam-one-cycle \
+        --max-lr 5e-4 \
+        --start-factor 5 \
+        --end-factor 500 \
+        --grad-clip 1

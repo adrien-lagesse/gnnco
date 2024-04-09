@@ -12,12 +12,15 @@ dependencies = [
     "safetensors>=0.4.2",
     "argparse>=1.4.0",
     "click>=8.1.7",
+    "mlflow>=2.11.3",
+    "setuptools>=69.2.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
 
 [project.scripts]
 gnnco-generate = "gnnco.dataset.generate:main"
+gnnco-train = "gnnco.train.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -27,7 +30,6 @@ build-backend = "hatchling.build"
 managed = true
 dev-dependencies = [
     "ruff>=0.3.4",
-    "mlflow>=2.11.3",
     "ipython>=8.22.2",
     "ipykernel>=6.29.4",
 ]
