@@ -11,12 +11,21 @@ Several functionalities are provided:
 
 __all__ = [
     "BatchedDenseGraphs",
+    "BatchedSignals",
     "BatchedSparseGraphs",
     "DenseGraph",
     "SparseGraph",
-    "random",
     "dataset",
+    "models",
+    "random",
+    "siamese_gm"
 ]
 
-from . import dataset, random
-from ._core import BatchedDenseGraphs, BatchedSparseGraphs, DenseGraph, SparseGraph
+from . import dataset, models, random, siamese_gm
+from ._core import (
+    BatchedDenseGraphs,
+    BatchedSignals,
+    BatchedSparseGraphs,
+    DenseGraph,
+    SparseGraph,
+)

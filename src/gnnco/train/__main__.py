@@ -20,6 +20,7 @@ def cli():
 )
 @click.option("--experiment", type=str, required=True, help="Experiment name")
 @click.option("--run-name", type=str, required=True, help="Run name")
+@click.option("--beta", type=float, required=True, help="Frobenius coefficient")
 @click.option("--epochs", type=int, required=True, help="Number of training epochs")
 @click.option("--batch-size", type=int, required=True, help="Batch size")
 @click.option("--cuda/--cpu", required=True, help="Training backend")

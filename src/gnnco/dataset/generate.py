@@ -76,8 +76,13 @@ def graph_matching_erdos_renyi(
         )
 
         save_file(
-            {str(i): torch.ones([order,]) for i in range(N)},
-            filename=os.path.join(output_dir, f"{prefix}-signals.safetensors"),
+            {str(i): torch.ones([order,1]) for i in range(N)},
+            filename=os.path.join(output_dir, f"{prefix}-base-signals.safetensors"),
+        )
+
+        save_file(
+            {str(i): torch.ones([order,1]) for i in range(N)},
+            filename=os.path.join(output_dir, f"{prefix}-corrupted-signals.safetensors"),
         )
 
         save_file(

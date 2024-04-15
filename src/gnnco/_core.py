@@ -96,7 +96,8 @@ class BatchedSparseGraphs:
         return BatchedSparseGraphs(
             senders=self._senders.to(device),
             receivers=self._receivers.to(device),
-            order=self._batch.to(device),
+            batch=self._batch.to(device),
+            orders=self._orders.to(device)
         )
 
     def device(self) -> torch.device:
@@ -212,3 +213,43 @@ class BatchedDenseGraphs:
         return BatchedSparseGraphs.from_graphs(
             list(map(lambda dense_graph: dense_graph.to_sparse(), self.unbatch()))
         )
+
+class BatchedSignals:
+    _signals: torch.FloatTensor
+    _batch: torch.LongTensor
+
+    def __init__(self, signals: torch.FloatTensor, batch: torch.LongTensor) -> None:
+        self._signals = signals
+        self._batch = batch
+    
+    def to(self, device: torch.device) -> Self:
+        return BatchedSignals(self._signals.to(device), self._batch.to(device))
+    
+    def device(self) -> torch.device:
+        return self._signals.device
+    
+    
+    def from_signals(signals: list[torch.FloatTensor]) -> Self:
+        device = signals[0].device
+        batch = torch.vstack([torch.tensor([i] * len(signals[i]), dtype=torch.long, device=device) for i in range(len(signals))])
+        return BatchedSignals(torch.cat(signals), batch)
+    
+    def __len__(self) -> int:
+        return int(torch.max(self._batch)+1)
+    
+    def __getitem__(self, idx: int) -> torch.FloatTensor:
+        if idx >= len(self):
+            raise KeyError(f"{idx} is not in batch of length {len(self)}")
+        return self._signals[self._batch == idx]
+    
+    def unbatch(self) -> list[torch.FloatTensor]:
+        return [self[i] for i in len(self)]
+    
+    def x(self) -> torch.FloatTensor:
+        return self._signals
+    
+    def dim(self) -> int:
+        return int(self._signals.shape[1])
+    
+    def force_stacking(self) -> torch.FloatTensor:
+        return self._signals.reshape(len(self), -1, self.dim())

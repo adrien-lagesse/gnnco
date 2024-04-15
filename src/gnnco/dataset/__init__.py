@@ -11,7 +11,8 @@ from gnnco._core import SparseGraph
 class GMDataset(torch.utils.data.Dataset):
     base_graphs: dict[int, SparseGraph]
     corrupted_graphs: dict[int, SparseGraph]
-    signals: dict[int, torch.FloatTensor]
+    base_signals: dict[int, torch.FloatTensor]
+    corrupted_signals: dict[int, torch.FloatTensor]
     qap_values: dict[int, float]
 
     def __init__(self, root: str | os.PathLike, *, validation: bool = False) -> None:
@@ -38,10 +39,16 @@ class GMDataset(torch.utils.data.Dataset):
                     os.path.join(root, f"{prefix}-corrupted-graphs.safetensors")
                 ).items()
             }
-            self.signals = {
+            self.base_signals = {
                 int(k): v
                 for k, v in load_file(
-                    os.path.join(root, f"{prefix}-signals.safetensors")
+                    os.path.join(root, f"{prefix}-base-signals.safetensors")
+                ).items()
+            }
+            self.corrupted_signals = {
+                int(k): v
+                for k, v in load_file(
+                    os.path.join(root, f"{prefix}-corrupted-signals.safetensors")
                 ).items()
             }
             self.qap_values = {
@@ -59,10 +66,11 @@ class GMDataset(torch.utils.data.Dataset):
         return len(self.base_graphs)
 
     @override
-    def __getitem__(self, index) -> tuple[SparseGraph, SparseGraph, torch.FloatTensor, float]:
+    def __getitem__(self, index) -> tuple[SparseGraph, SparseGraph, torch.FloatTensor, torch.FloatTensor, float]:
         return (
             self.base_graphs[index],
             self.corrupted_graphs[index],
-            self.signals[index],
+            self.base_signals[index],
+            self.corrupted_signals[index],
             self.qap_values[index],
         )

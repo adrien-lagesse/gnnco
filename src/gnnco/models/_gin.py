@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.nn import GINConv, GraphNorm
 
-from gnnco import BatchedSparseGraphs
+from gnnco._core import BatchedSignals, BatchedSparseGraphs
 
 GN_FREQ = 3
 
@@ -30,9 +30,10 @@ class GIN(torch.nn.Module):
         )
         self.linear = torch.nn.Linear(features, out_features)
 
-    def forward(self, signals: torch.FloatTensor, batch: BatchedSparseGraphs):
-        edge_index = batch.edge_index()
-        x = F.relu(self.layer0(signals, edge_index))
+    def forward(self, batched_signals: BatchedSignals, batched_graphs: BatchedSparseGraphs) -> BatchedSignals:
+        x = batched_signals.x()
+        edge_index = batched_graphs.edge_index()
+        x = F.relu(self.layer0(x, edge_index))
         for i in range(len(self.layers)):
             if i % GN_FREQ == 0:
                 x = self.gns[i // GN_FREQ](x)
@@ -40,4 +41,4 @@ class GIN(torch.nn.Module):
 
         x = self.linear(x)
 
-        return x
+        return BatchedSignals(x, batched_signals._batch)
