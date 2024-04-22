@@ -1,19 +1,20 @@
 rye run gnnco-train siamese-gm \
     --dataset  "/scratch/jlagesse/gnnco/datasets/ER[100,8,0.12]" \
     --experiment "BETA Test" \
-    --run-name "BETA_0.001 GCN" \
-    --beta 0.001 \
+    --run-name "BETA_50 GAT" \
+    --beta  50 \
     --epochs 1000 \
     --batch-size 50 \
     --cuda \
     --log-frequency 25 \
     --no-profile \
-    --model GCN \
-        --layers 5 \
-        --features 128 \
+    --model GAT \
+        --layers 8 \
+        --heads 10 \
+        --features 300 \
         --out-features 128 \
     --optimizer adam-one-cycle \
-        --max-lr 1e-3 \
+        --max-lr 5e-4 \
         --start-factor 5 \
         --end-factor 500 \
-        --grad-clip 1
+        --grad-clip 0.1

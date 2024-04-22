@@ -204,11 +204,17 @@ def compute_losses(
         signal_corrupted=signal_corrupted,
     )
 
-    logits = torch.softmax(similarities, dim=2)
+    logits = torch.softmax(similarities.flatten(end_dim=-2), dim=1).reshape(
+        similarities.shape
+    )
 
-    alignement_loss = -torch.log(torch.diagonal(logits) + 1e-7)
+    alignement_loss = -torch.log(
+        torch.diagonal(logits, dim1=1, dim2=2).mean(dim=1) + 1e-7
+    )
 
-    frobenius_loss = ((torch.diagonal(similarities) - qap_values) / qap_values) ** 2
+    frobenius_loss = (
+        torch.diagonal(similarities, dim1=1, dim2=2).sum(dim=1) / qap_values - 1
+    ) ** 2
 
     loss = alignement_loss + beta * frobenius_loss
 
@@ -231,12 +237,14 @@ def compute_permutations(
         signal_corrupted=signal_corrupted,
     )
 
-    logits = torch.softmax(similarities, dim=2)
+    # logits = torch.softmax(similarities.flatten(end_dim=-2), dim=1).reshape(
+    #     similarities.shape
+    # )
 
     accuracies = []
     permuations = []
-    for i in range(len(logits)):
-        costs = logits[i].detach().cpu().numpy()
+    for i in range(len(similarities)):
+        costs = similarities[i].detach().cpu().numpy()
         idx, permutation_pred = linear_sum_assignment(costs, maximize=True)
         accuracies.append(float((idx == permutation_pred).astype(float).mean()))
         permuations.append(
@@ -411,7 +419,8 @@ def train(
                     beta=beta,
                 )
 
-                losses.mean().backward()
+                loss = losses.mean()
+                loss.backward()
                 torch.nn.utils.clip_grad_value_(gnn_model.parameters(), grad_clip)
                 gnn_optimizer.step()
             gnn_scheduler.step()

@@ -54,9 +54,10 @@ def graph_matching_erdos_renyi(
         )
 
         with torch.device("cuda" if cuda else "cpu"):
-            base_graphs = erdos_renyi(N, order, density / (order - 1))
+            p_edge = density / (order - 1)
+            base_graphs = erdos_renyi(N, order, p_edge)
             corrupted_graphs = bernoulli_corruption(
-                base_graphs, p_edge=noise, p_nonedge=noise * density / (order - density)
+                base_graphs, p_edge=noise, p_nonedge=noise * p_edge / (1 - p_edge)
             )
             qap_values = {
                 str(i): (

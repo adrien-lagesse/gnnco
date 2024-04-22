@@ -1,6 +1,6 @@
 import os
 import os.path
-from typing import override
+from typing import Self, override
 
 import torch.utils.data
 from safetensors.torch import load_file
@@ -74,3 +74,18 @@ class GMDataset(torch.utils.data.Dataset):
             self.corrupted_signals[index],
             self.qap_values[index],
         )
+    
+    @override
+    def __iter__(self) -> Self:
+        self.iter_index = 0
+        return self
+    
+    @override
+    def __next__(self) -> tuple[SparseGraph, SparseGraph, torch.FloatTensor, torch.FloatTensor, float]:
+        if self.iter_index < len(self):
+            res = self[self.iter_index]
+            self.iter_index += 1
+            return res
+        else:
+            raise StopIteration
+    
