@@ -63,6 +63,8 @@ graphql-core==3.2.3
     # via graphql-relay
 graphql-relay==3.2.0
     # via graphene
+graphviz==0.20.3
+    # via gnnco
 greenlet==3.0.3
     # via sqlalchemy
 gunicorn==21.2.0
@@ -109,6 +111,7 @@ numpy==1.26.4
     # via mlflow
     # via pandas
     # via pyarrow
+    # via rdkit
     # via scikit-learn
     # via scipy
     # via torch-geometric
@@ -150,6 +153,7 @@ pandas==2.2.1
     # via mlflow
 pillow==10.2.0
     # via matplotlib
+    # via rdkit
     # via torchvision
 protobuf==4.25.3
     # via mlflow
@@ -170,6 +174,8 @@ pyyaml==6.0.1
     # via mlflow
 querystring-parser==1.2.4
     # via mlflow
+rdkit==2023.9.5
+    # via gnnco
 requests==2.31.0
     # via docker
     # via mlflow

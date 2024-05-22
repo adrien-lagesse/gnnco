@@ -35,7 +35,7 @@ def cli():
 )
 @click.option(
     "--model",
-    type=click.Choice(["GCN", "GIN", "GAT"]),
+    type=click.Choice(["GCN", "GIN", "GAT", "GatedGCN", "GATv2"]),
     required=True,
     help="Model type",
 )
@@ -77,6 +77,8 @@ def graph_matching_siamese_train(**kwargs):
     require_options("model", "GCN", required_option=["layers", "features", "out_features"])
     require_options("model", "GIN", required_option=["layers", "features", "out_features"])
     require_options("model", "GAT", required_option=["layers", "features", "heads", "out_features"])
+    require_options("model", "GatedGCN", required_option=["layers", "features", "out_features"])
+    require_options("model", "GATv2", required_option=["layers", "features", "heads", "out_features"])
 
     require_options("optimizer", "adam", required_option=["lr", "grad_clip"])
     require_options("optimizer", "adam-one-cycle", required_option=["max_lr", "start_factor", "end_factor", "grad_clip"])

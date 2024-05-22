@@ -1,20 +1,20 @@
 rye run gnnco-train siamese-gm \
-    --dataset  "/scratch/jlagesse/gnnco/datasets/ER[100,8,0.12]" \
-    --experiment "BETA Test" \
-    --run-name "BETA_50 GAT" \
-    --beta  50 \
+    --dataset  "/scratch/jlagesse/gnnco/mixed-dataset/ER[100,_,0.12]" \
+    --experiment "Margin Loss [1] - Mixed - Distance Learning [128]x128" \
+    --run-name "0.999 [100,_,0.12] GAT 8" \
+    --beta  0.999 \
     --epochs 1000 \
     --batch-size 50 \
     --cuda \
-    --log-frequency 25 \
+    --log-frequency 5 \
     --no-profile \
     --model GAT \
         --layers 8 \
-        --heads 10 \
-        --features 300 \
+        --heads 32 \
+        --features 128 \
         --out-features 128 \
     --optimizer adam-one-cycle \
-        --max-lr 5e-4 \
+        --max-lr 8e-4 \
         --start-factor 5 \
         --end-factor 500 \
         --grad-clip 0.1

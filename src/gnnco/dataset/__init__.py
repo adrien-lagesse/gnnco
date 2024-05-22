@@ -52,7 +52,7 @@ class GMDataset(torch.utils.data.Dataset):
                 ).items()
             }
             self.qap_values = {
-                int(k): float(v)
+                int(k): v
                 for k, v in load_file(
                     os.path.join(root, f"{prefix}-qap-values.safetensors")
                 ).items()

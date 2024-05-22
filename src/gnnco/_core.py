@@ -243,7 +243,7 @@ class BatchedSignals:
         return self._signals[self._batch == idx]
     
     def unbatch(self) -> list[torch.FloatTensor]:
-        return [self[i] for i in len(self)]
+        return [self[i] for i in range(len(self))]
     
     def x(self) -> torch.FloatTensor:
         return self._signals

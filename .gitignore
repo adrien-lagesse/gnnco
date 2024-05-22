@@ -136,4 +136,4 @@ dmypy.json
 # Project related
 mlruns/
 data/
-sbatch-output
+sbatch-output/

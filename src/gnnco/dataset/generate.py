@@ -62,7 +62,7 @@ def graph_matching_erdos_renyi(
             qap_values = {
                 str(i): (
                     base_graphs[i].adj().float() * corrupted_graphs[i].adj().float()
-                ).sum()
+                ).sum(dim=1)
                 for i in range(N)
             }
 

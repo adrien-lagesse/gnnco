@@ -3,16 +3,18 @@ import pathlib
 import statistics
 from functools import partial
 from typing import Literal
+from urllib.parse import unquote, urlparse
 
 import mlflow
 import numpy as np
 import torch
 import torch.utils.data
+from safetensors.torch import save_model
 from scipy.optimize import linear_sum_assignment
 
 from gnnco._core import BatchedSignals, BatchedSparseGraphs, SparseGraph
 from gnnco.dataset import GMDataset
-from gnnco.models import GAT, GCN, GIN
+from gnnco.models import GAT, GCN, GIN, GatedGCN, GATv2
 
 
 def __get_kwargs():
@@ -42,7 +44,13 @@ def setup_data(
 
     def collate_fn(
         batch_l: list[
-            tuple[SparseGraph, SparseGraph, torch.FloatTensor, torch.FloatTensor, float]
+            tuple[
+                SparseGraph,
+                SparseGraph,
+                torch.FloatTensor,
+                torch.FloatTensor,
+                torch.FloatTensor,
+            ]
         ],
     ) -> tuple[
         BatchedSparseGraphs,
@@ -61,7 +69,7 @@ def setup_data(
         corrupted_signal_batch = BatchedSignals.from_signals(
             list(map(lambda t: t[3], batch_l))
         )
-        qap_values_batch = torch.FloatTensor(list(map(lambda t: t[4], batch_l)))
+        qap_values_batch = torch.stack(list(map(lambda t: t[4], batch_l)))
 
         return (
             base_batch,
@@ -98,7 +106,7 @@ def setup_data(
 
 def _model_factory(
     *,
-    model: Literal["GCN", "GIN", "GAT"],
+    model: Literal["GCN", "GIN", "GAT", "GatedGCN", "GATv2"],
     layers: int | None,
     heads: int | None,
     features: int | None,
@@ -110,6 +118,10 @@ def _model_factory(
         return GIN(layers, features, out_features)
     elif model == "GAT":
         return GAT(layers, heads, features, out_features)
+    elif model == "GatedGCN":
+        return GatedGCN(layers, features, out_features)
+    elif model == "GATv2":
+        return GATv2(layers, heads, features, out_features)
     else:
         raise RuntimeError(f"Model name '{model}' does not exists")
 
@@ -204,31 +216,40 @@ def compute_losses(
         signal_corrupted=signal_corrupted,
     )
 
-    logits = torch.softmax(similarities.flatten(end_dim=-2), dim=1).reshape(
-        similarities.shape
-    )
 
-    alignement_loss = -torch.log(
-        torch.diagonal(logits, dim1=1, dim2=2).mean(dim=1) + 1e-7
-    )
+
+    # logits = torch.softmax(similarities.flatten(end_dim=-2), dim=1).reshape(
+    #     similarities.shape
+    # )
+
+    # alignement_loss = -torch.log(
+    #     torch.diagonal(logits, dim1=1, dim2=2).mean(dim=1) + 1e-7
+    # )
+
+    ALPHA = 1
+
+    alignement_loss = torch.relu(similarities-torch.diagonal(similarities-ALPHA, dim1=-2, dim2=-1).unsqueeze(-1) + ALPHA).mean(dim=-1)
+    alignement_loss = alignement_loss.mean(dim=1)
 
     frobenius_loss = (
-        torch.diagonal(similarities, dim1=1, dim2=2).sum(dim=1) / qap_values - 1
+        (torch.diagonal(similarities, dim1=1, dim2=2) - qap_values)
+        / (qap_values.mean() + 1)
     ) ** 2
+    frobenius_loss = frobenius_loss.mean(dim=1)
 
-    loss = alignement_loss + beta * frobenius_loss
+    loss = (1-beta)*alignement_loss + beta * frobenius_loss
 
     return loss, (alignement_loss, frobenius_loss)
 
 
-def compute_permutations(
+def compute_accuracies(
     model: torch.nn.Module,
     *,
     graph_base: BatchedSparseGraphs,
     signal_base: BatchedSignals,
     graph_corrupted: BatchedSparseGraphs,
     signal_corrupted: BatchedSignals,
-) -> tuple[list[torch.LongTensor], list[float]]:
+) -> tuple[list[torch.LongTensor], list[float], list[float], list[float]]:
     similarities = siamese_similarity(
         model,
         graph_base=graph_base,
@@ -237,21 +258,68 @@ def compute_permutations(
         signal_corrupted=signal_corrupted,
     )
 
-    # logits = torch.softmax(similarities.flatten(end_dim=-2), dim=1).reshape(
-    #     similarities.shape
-    # )
-
     accuracies = []
     permuations = []
+    top3_accuracies = []
+    top5_accuracies = []
     for i in range(len(similarities)):
-        costs = similarities[i].detach().cpu().numpy()
-        idx, permutation_pred = linear_sum_assignment(costs, maximize=True)
+        similarity = similarities[i].detach().cpu().numpy()
+        idx, permutation_pred = linear_sum_assignment(similarity, maximize=True)
         accuracies.append(float((idx == permutation_pred).astype(float).mean()))
         permuations.append(
             torch.tensor(permutation_pred, dtype=torch.long, device=graph_base.device())
         )
+        _, indices = torch.sort(similarities[i], descending=True)
+        top3_indices = indices[:, :3].detach().cpu()
+        top3_accuracies.append(
+            float(
+                torch.isin(torch.arange(len(similarities[i])), top3_indices)
+                .float()
+                .mean()
+            )
+        )
+        top5_indices = indices[:, :5].detach().cpu()
+        top5_accuracies.append(
+            float(
+                torch.isin(torch.arange(len(similarities[i])), top5_indices)
+                .float()
+                .mean()
+            )
+        )
 
-    return permuations, accuracies
+    return permuations, accuracies, top3_accuracies, top5_accuracies
+
+def compute_distance_losses(
+    model: torch.nn.Module,
+    *,
+    graph_base: BatchedSparseGraphs,
+    signal_base: BatchedSignals,
+    graph_corrupted: BatchedSparseGraphs,
+    signal_corrupted: BatchedSignals,
+    permutations: list[torch.LongTensor],
+    qap_values: torch.FloatTensor,
+) -> torch.FloatTensor:
+    
+    embeddings_base: BatchedSignals = model.forward(signal_base, graph_base)
+    embeddings_corrupted: BatchedSignals = model.forward(
+        signal_corrupted, graph_corrupted
+    )
+
+    embeddings_base = embeddings_base.force_stacking()
+    embeddings_corrupted = embeddings_corrupted.force_stacking()
+
+    for i, p in enumerate(permutations):
+        embeddings_corrupted[i] = embeddings_corrupted[i,p,:]
+
+    similarities = torch.bmm(embeddings_base, embeddings_corrupted.transpose(1, 2))
+
+    distance_loss = (
+        (torch.diagonal(similarities, dim1=1, dim2=2) - qap_values)
+        / (qap_values.mean() + 1)
+    ) ** 2
+    distance_loss = distance_loss.mean(dim=1)
+
+    return distance_loss
 
 
 def compute_metrics(
@@ -267,7 +335,11 @@ def compute_metrics(
         "alignement_loss": [],
         "frobenius_loss": [],
         "frobenius_rscore": [],
+        "distance_loss": [],
+        "distance_rscore": [],
         "accuracy": [],
+        "top3_accuracy": [],
+        "top5_accuracy": [],
     }
     base: BatchedSparseGraphs
     corrupted: BatchedSparseGraphs
@@ -287,6 +359,18 @@ def compute_metrics(
         corrupted_signal = corrupted_signal.to(device)
         qap_values = qap_values.to(device)
 
+        permutations, accuracies, top3_accuracies, top5_accuracies = compute_accuracies(
+            model,
+            graph_base=base,
+            graph_corrupted=corrupted,
+            signal_base=base_signal,
+            signal_corrupted=corrupted_signal,
+        )
+
+        metrics_l["accuracy"].append(statistics.mean(accuracies))
+        metrics_l["top3_accuracy"].append(statistics.mean(top3_accuracies))
+        metrics_l["top5_accuracy"].append(statistics.mean(top5_accuracies))
+
         losses, (alignement_losses, frobenius_losses) = compute_losses(
             model,
             graph_base=base,
@@ -296,24 +380,41 @@ def compute_metrics(
             qap_values=qap_values,
             beta=beta,
         )
+
         metrics_l["loss"].append(float(losses.mean()))
         metrics_l["alignement_loss"].append(float(alignement_losses.mean()))
         metrics_l["frobenius_loss"].append(float(frobenius_losses.mean()))
+        frobenius_loss_of_mean_predictor = (
+            (qap_mean_predictor - qap_values) / (qap_values.mean() + 1)
+        ) ** 2
         frobenius_loss_of_mean_predictor = float(
-            (((qap_values - qap_mean_predictor) / qap_values) ** 2).mean()
+            frobenius_loss_of_mean_predictor.mean()
         )
+
         metrics_l["frobenius_rscore"].append(
             float(frobenius_losses.mean()) / frobenius_loss_of_mean_predictor
         )
 
-        _permutations, accuracies = compute_permutations(
+        distance_losses = compute_distance_losses(
             model,
             graph_base=base,
             graph_corrupted=corrupted,
             signal_base=base_signal,
             signal_corrupted=corrupted_signal,
+            permutations=permutations,
+            qap_values=qap_values,
         )
-        metrics_l["accuracy"].append(statistics.mean(accuracies))
+        metrics_l["distance_loss"].append(float(distance_losses.mean()))
+        frobenius_loss_of_mean_predictor = (
+            (qap_mean_predictor - qap_values) / (qap_values.mean() + 1)
+        ) ** 2
+        frobenius_loss_of_mean_predictor = float(
+            frobenius_loss_of_mean_predictor.mean()
+        )
+
+        metrics_l["distance_rscore"].append(
+            float(distance_losses.mean()) / frobenius_loss_of_mean_predictor
+        )
 
     return {k: statistics.mean(v) for (k, v) in metrics_l.items()}
 
@@ -330,7 +431,7 @@ def train(
     cuda: bool = True,
     log_frequency: int = 25,
     profile: bool = False,
-    model: Literal["GCN", "GIN", "GAT"] | None,
+    model: Literal["GCN", "GIN", "GAT", "GatedGCN", "GATv2"] | None,
     layers: int | None,
     heads: int | None,
     features: int | None,
@@ -346,7 +447,7 @@ def train(
 
     mlflow.set_experiment(experiment_name=experiment)
 
-    with mlflow.start_run(run_name=run_name, log_system_metrics=profile):
+    with mlflow.start_run(run_name=run_name, log_system_metrics=profile) as run:
         mlflow.log_params(__get_kwargs())
 
         # Load the training and validation datasets and build suitable loaders to batch the graphs together.
@@ -449,4 +550,8 @@ def train(
                 }
                 mlflow.log_metrics(train_metrics, epoch)
                 mlflow.log_metrics(val_metrics, epoch)
-    print("End")
+
+        checkpoint_path = unquote(
+            urlparse(run.info.artifact_uri + "/checkpoint.safetensors").path
+        )
+        save_model(gnn_model, checkpoint_path)
