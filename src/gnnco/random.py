@@ -1,6 +1,10 @@
+"""
+Module providing random operations linked to graphs
+"""
+
 import torch
 
-from gnnco._core import BatchedDenseGraphs
+from ._core import BatchedDenseGraphs
 
 
 def erdos_renyi(
@@ -11,6 +15,12 @@ def erdos_renyi(
     directed: bool = False,
     self_loops: bool | None = False,
 ) -> BatchedDenseGraphs:
+    """
+    Generate a batch of random Erdos-Renyi graphs
+    """
+
+    assert 0.0 <= p <= 1, "'p' must be between 0 and 1"
+
     batch = torch.empty(size=(nb_graphs, order, order), dtype=torch.bool).bernoulli_(p)
 
     if not directed:
@@ -35,6 +45,13 @@ def bernoulli_corruption(
     directed: bool = False,
     self_loops: bool = False,
 ) -> BatchedDenseGraphs:
+    """
+    Apply a Bernoulli corruption to each graph in the batch
+    """
+
+    assert 0.0 <= p_edge <= 1, "'p_edge' must be between 0 and 1"
+    assert 0.0 <= p_nonedge <= 1, "'p_nonedge' must be between 0 and 1"
+
     edge_noise = torch.empty(
         size=(len(batch), int(batch._orders.max()), int(batch._orders.max())),
         dtype=torch.bool,
