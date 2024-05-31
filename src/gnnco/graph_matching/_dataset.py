@@ -7,8 +7,9 @@ import os.path
 from typing import NamedTuple, Self, override
 
 import torch.utils.data
-from gnnco._core import SparseGraph
 from safetensors.torch import load_file
+
+from .._core import SparseGraph
 
 GMDatasetItem = NamedTuple(
     "GMDatasetItem", base_graph=SparseGraph, corrupted_graph=SparseGraph
