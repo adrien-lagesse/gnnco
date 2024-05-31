@@ -36,11 +36,12 @@ def setup_data(
     num_workers: int = 4,
     prefetch_factor: int = 4,
     persistent_workers: bool = True,
+    single_base_graph: bool = False
 ) -> tuple[
     GMDataset, GMDataset, torch.utils.data.DataLoader, torch.utils.data.DataLoader
 ]:
-    train_dataset = GMDataset(root=dataset_path)
-    val_dataset = GMDataset(root=dataset_path, validation=True)
+    train_dataset = GMDataset(root=dataset_path, single_base_graph=single_base_graph)
+    val_dataset = GMDataset(root=dataset_path, validation=True, single_base_graph=single_base_graph)
 
     def collate_fn(
         batch_l: list[
@@ -148,6 +149,7 @@ def _onecycle(
 
 def _optimizer_factory(
     model: torch.nn.Module,
+    mlp: torch.nn.Module,
     optimizer: Literal["adam", "adam-one-cycle"],
     epochs: int | None,
     lr: float | None,
@@ -158,12 +160,13 @@ def _optimizer_factory(
     """
     Create the optimizer and scheduler
     """
+    mod_list = torch.nn.ModuleList([model, mlp])
     if optimizer == "adam":
-        optimizer = torch.optim.Adam(model.parameters(), lr=1)
+        optimizer = torch.optim.Adam(mod_list.parameters(), lr=1)
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda epoch: lr)
         return optimizer, scheduler
     elif optimizer == "adam-one-cycle":
-        optimizer = torch.optim.AdamW(model.parameters(), lr=1)
+        optimizer = torch.optim.AdamW(mod_list.parameters(), lr=1)
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer,
             partial(
@@ -181,6 +184,7 @@ def _optimizer_factory(
 
 def siamese_similarity(
     model: torch.nn.Module,
+    mlp: torch.nn.Module,
     *,
     graph_base: BatchedSparseGraphs,
     signal_base: BatchedSignals,
@@ -195,11 +199,22 @@ def siamese_similarity(
     stacked_base = embeddings_base.force_stacking()
     stacked_corrupted = embeddings_corrupted.force_stacking()
 
-    return torch.bmm(stacked_base, stacked_corrupted.transpose(1, 2))
+    alignement_similarities = torch.bmm(stacked_base, stacked_corrupted.transpose(1, 2))
+
+    embeddings_base: BatchedSignals = mlp.forward(embeddings_base)
+    embeddings_corrupted: BatchedSignals = mlp.forward(embeddings_corrupted)
+
+    stacked_base = embeddings_base.force_stacking()
+    stacked_corrupted = embeddings_corrupted.force_stacking()
+
+    frobenius_similarities = torch.bmm(stacked_base, stacked_corrupted.transpose(1, 2))
+
+    return alignement_similarities, frobenius_similarities
 
 
 def compute_losses(
     model: torch.nn.Module,
+    mlp: torch.nn.Module,
     *,
     graph_base: BatchedSparseGraphs,
     signal_base: BatchedSignals,
@@ -208,50 +223,57 @@ def compute_losses(
     qap_values: torch.FloatTensor,
     beta: float = 1,
 ) -> tuple[torch.FloatTensor, tuple[torch.FloatTensor, torch.FloatTensor]]:
-    similarities = siamese_similarity(
+    alignement_similarities, frobenius_similarities = siamese_similarity(
         model,
+        mlp,
         graph_base=graph_base,
         graph_corrupted=graph_corrupted,
         signal_base=signal_base,
         signal_corrupted=signal_corrupted,
     )
 
+    logits = torch.softmax(alignement_similarities.flatten(end_dim=-2), dim=1).reshape(
+        alignement_similarities.shape
+    )
 
+    alignement_loss = -torch.log(
+        torch.diagonal(logits, dim1=1, dim2=2).mean(dim=1) + 1e-7
+    )
 
-    # logits = torch.softmax(similarities.flatten(end_dim=-2), dim=1).reshape(
-    #     similarities.shape
-    # )
+    # ALPHA = 1
 
-    # alignement_loss = -torch.log(
-    #     torch.diagonal(logits, dim1=1, dim2=2).mean(dim=1) + 1e-7
-    # )
-
-    ALPHA = 1
-
-    alignement_loss = torch.relu(similarities-torch.diagonal(similarities-ALPHA, dim1=-2, dim2=-1).unsqueeze(-1) + ALPHA).mean(dim=-1)
-    alignement_loss = alignement_loss.mean(dim=1)
+    # alignement_loss = torch.relu(
+    #     alignement_similarities
+    #     - torch.diagonal(alignement_similarities - ALPHA, dim1=-2, dim2=-1).unsqueeze(
+    #         -1
+    #     )
+    #     + ALPHA
+    # ).mean(dim=-1)
+    # alignement_loss = alignement_loss.mean(dim=1)
 
     frobenius_loss = (
-        (torch.diagonal(similarities, dim1=1, dim2=2) - qap_values)
+        (torch.diagonal(frobenius_similarities, dim1=1, dim2=2) - qap_values)
         / (qap_values.mean() + 1)
     ) ** 2
     frobenius_loss = frobenius_loss.mean(dim=1)
 
-    loss = (1-beta)*alignement_loss + beta * frobenius_loss
+    loss = (1 - beta) * alignement_loss + beta * frobenius_loss
 
     return loss, (alignement_loss, frobenius_loss)
 
 
 def compute_accuracies(
     model: torch.nn.Module,
+    mlp: torch.nn.Module,
     *,
     graph_base: BatchedSparseGraphs,
     signal_base: BatchedSignals,
     graph_corrupted: BatchedSparseGraphs,
     signal_corrupted: BatchedSignals,
 ) -> tuple[list[torch.LongTensor], list[float], list[float], list[float]]:
-    similarities = siamese_similarity(
+    alignement_similarities, _ = siamese_similarity(
         model,
+        mlp,
         graph_base=graph_base,
         graph_corrupted=graph_corrupted,
         signal_base=signal_base,
@@ -262,18 +284,18 @@ def compute_accuracies(
     permuations = []
     top3_accuracies = []
     top5_accuracies = []
-    for i in range(len(similarities)):
-        similarity = similarities[i].detach().cpu().numpy()
+    for i in range(len(alignement_similarities)):
+        similarity = alignement_similarities[i].detach().cpu().numpy()
         idx, permutation_pred = linear_sum_assignment(similarity, maximize=True)
         accuracies.append(float((idx == permutation_pred).astype(float).mean()))
         permuations.append(
             torch.tensor(permutation_pred, dtype=torch.long, device=graph_base.device())
         )
-        _, indices = torch.sort(similarities[i], descending=True)
+        _, indices = torch.sort(alignement_similarities[i], descending=True)
         top3_indices = indices[:, :3].detach().cpu()
         top3_accuracies.append(
             float(
-                torch.isin(torch.arange(len(similarities[i])), top3_indices)
+                torch.isin(torch.arange(len(alignement_similarities[i])), top3_indices)
                 .float()
                 .mean()
             )
@@ -281,7 +303,7 @@ def compute_accuracies(
         top5_indices = indices[:, :5].detach().cpu()
         top5_accuracies.append(
             float(
-                torch.isin(torch.arange(len(similarities[i])), top5_indices)
+                torch.isin(torch.arange(len(alignement_similarities[i])), top5_indices)
                 .float()
                 .mean()
             )
@@ -289,8 +311,10 @@ def compute_accuracies(
 
     return permuations, accuracies, top3_accuracies, top5_accuracies
 
+
 def compute_distance_losses(
     model: torch.nn.Module,
+    mlp: torch.nn.Module,
     *,
     graph_base: BatchedSparseGraphs,
     signal_base: BatchedSignals,
@@ -299,22 +323,26 @@ def compute_distance_losses(
     permutations: list[torch.LongTensor],
     qap_values: torch.FloatTensor,
 ) -> torch.FloatTensor:
-    
     embeddings_base: BatchedSignals = model.forward(signal_base, graph_base)
     embeddings_corrupted: BatchedSignals = model.forward(
         signal_corrupted, graph_corrupted
     )
 
+    embeddings_base = mlp.forward(embeddings_base)
+    embeddings_corrupted = mlp.forward(embeddings_corrupted)
+
     embeddings_base = embeddings_base.force_stacking()
     embeddings_corrupted = embeddings_corrupted.force_stacking()
 
     for i, p in enumerate(permutations):
-        embeddings_corrupted[i] = embeddings_corrupted[i,p,:]
+        embeddings_corrupted[i] = embeddings_corrupted[i, p, :]
 
-    similarities = torch.bmm(embeddings_base, embeddings_corrupted.transpose(1, 2))
+    frobenius_similarities = torch.bmm(
+        embeddings_base, embeddings_corrupted.transpose(1, 2)
+    )
 
     distance_loss = (
-        (torch.diagonal(similarities, dim1=1, dim2=2) - qap_values)
+        (torch.diagonal(frobenius_similarities, dim1=1, dim2=2) - qap_values)
         / (qap_values.mean() + 1)
     ) ** 2
     distance_loss = distance_loss.mean(dim=1)
@@ -324,6 +352,7 @@ def compute_distance_losses(
 
 def compute_metrics(
     model: torch.nn.Module,
+    mlp: torch.nn.Module,
     loader: torch.utils.data.DataLoader,
     beta: float,
     qap_mean_predictor: float,
@@ -361,6 +390,7 @@ def compute_metrics(
 
         permutations, accuracies, top3_accuracies, top5_accuracies = compute_accuracies(
             model,
+            mlp,
             graph_base=base,
             graph_corrupted=corrupted,
             signal_base=base_signal,
@@ -373,6 +403,7 @@ def compute_metrics(
 
         losses, (alignement_losses, frobenius_losses) = compute_losses(
             model,
+            mlp,
             graph_base=base,
             graph_corrupted=corrupted,
             signal_base=base_signal,
@@ -397,6 +428,7 @@ def compute_metrics(
 
         distance_losses = compute_distance_losses(
             model,
+            mlp,
             graph_base=base,
             graph_corrupted=corrupted,
             signal_base=base_signal,
@@ -419,6 +451,23 @@ def compute_metrics(
     return {k: statistics.mean(v) for (k, v) in metrics_l.items()}
 
 
+class FrobeniusMLP(torch.nn.Module):
+    def __init__(self, features: int) -> None:
+        super().__init__()
+        self.layers = torch.nn.Sequential(
+            torch.nn.Linear(features, features),
+            torch.nn.ReLU(),
+            torch.nn.Linear(features, features),
+            torch.nn.ReLU(),
+            torch.nn.Linear(features, features),
+        )
+
+    def forward(self, batched_signals: BatchedSignals) -> BatchedSignals:
+        return BatchedSignals(
+            self.layers.forward(batched_signals.x()), batched_signals._batch
+        )
+
+
 def train(
     *,
     custom_model: torch.nn.Module | None = None,
@@ -429,6 +478,7 @@ def train(
     epochs: int,
     batch_size: int,
     cuda: bool = True,
+    single_base_graph: bool = False,
     log_frequency: int = 25,
     profile: bool = False,
     model: Literal["GCN", "GIN", "GAT", "GatedGCN", "GATv2"] | None,
@@ -452,7 +502,7 @@ def train(
 
         # Load the training and validation datasets and build suitable loaders to batch the graphs together.
         (train_dataset, val_dataset, train_loader, val_loader) = setup_data(
-            dataset_path=dataset, batch_size=batch_size
+            dataset_path=dataset, batch_size=batch_size, single_base_graph=single_base_graph
         )
 
         # Setting up the GNN model and loading it onto the gpu if needed
@@ -469,6 +519,10 @@ def train(
             )
         gnn_model = gnn_model.to(device)
 
+        # Setting up the MLP model and loading it onto the gpu if needed
+        mlp = FrobeniusMLP(out_features)
+        mlp = mlp.to(device)
+
         # Computing the number of parameters in the GNN
         mlflow.log_param(
             "nb_params", sum([np.prod(p.size()) for p in gnn_model.parameters()])
@@ -477,6 +531,7 @@ def train(
         # Build the optimizer and scheduler
         gnn_optimizer, gnn_scheduler = _optimizer_factory(
             gnn_model,
+            mlp,
             optimizer=optimizer,
             epochs=epochs,
             lr=lr,
@@ -509,9 +564,11 @@ def train(
                 qap_values = qap_values.to(device)
 
                 gnn_model.zero_grad()
+                mlp.zero_grad()
 
                 losses, (_alignement_losses, _frobenius_losses) = compute_losses(
                     gnn_model,
+                    mlp,
                     graph_base=base,
                     graph_corrupted=corrupted,
                     signal_base=base_signal,
@@ -523,6 +580,7 @@ def train(
                 loss = losses.mean()
                 loss.backward()
                 torch.nn.utils.clip_grad_value_(gnn_model.parameters(), grad_clip)
+                torch.nn.utils.clip_grad_value_(mlp.parameters(), grad_clip)
                 gnn_optimizer.step()
             gnn_scheduler.step()
 
@@ -539,13 +597,13 @@ def train(
                 train_metrics = {
                     f"{k}/train": v
                     for (k, v) in compute_metrics(
-                        gnn_model, train_loader, beta, qap_mean_predictor, device
+                        gnn_model, mlp, train_loader, beta, qap_mean_predictor, device
                     ).items()
                 }
                 val_metrics = {
                     f"{k}/val": v
                     for (k, v) in compute_metrics(
-                        gnn_model, val_loader, beta, qap_mean_predictor, device
+                        gnn_model, mlp, val_loader, beta, qap_mean_predictor, device
                     ).items()
                 }
                 mlflow.log_metrics(train_metrics, epoch)

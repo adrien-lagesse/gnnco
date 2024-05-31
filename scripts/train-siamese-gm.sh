@@ -1,18 +1,18 @@
 rye run gnnco-train siamese-gm \
-    --dataset  "/scratch/jlagesse/gnnco/mixed-dataset/ER[100,_,0.12]" \
-    --experiment "Margin Loss [1] - Mixed - Distance Learning [128]x128" \
-    --run-name "0.999 [100,_,0.12] GAT 8" \
-    --beta  0.999 \
-    --epochs 1000 \
+    --dataset  "/scratch/jlagesse/gnnco/dataset-karateclub/KarateClub-[0.5]" \
+    --experiment "KarateClub-[0.5]" \
+    --run-name "0.5 GCN 5" \
+    --beta  0.5 \
+    --epochs 100 \
     --batch-size 50 \
     --cuda \
-    --log-frequency 5 \
+    --single-base-graph \
+    --log-frequency 1 \
     --no-profile \
-    --model GAT \
-        --layers 8 \
-        --heads 32 \
-        --features 128 \
-        --out-features 128 \
+    --model GCN \
+        --layers 5 \
+        --features 64 \
+        --out-features 64 \
     --optimizer adam-one-cycle \
         --max-lr 8e-4 \
         --start-factor 5 \

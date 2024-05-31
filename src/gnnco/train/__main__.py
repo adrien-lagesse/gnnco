@@ -25,6 +25,9 @@ def cli():
 @click.option("--batch-size", type=int, required=True, help="Batch size")
 @click.option("--cuda/--cpu", required=True, help="Training backend")
 @click.option(
+    "--single-base-graph/--multiple-base-graphs", default=False, show_default=True
+)
+@click.option(
     "--log-frequency", type=int, required=True, help="Logging frequency in epoch number"
 )
 @click.option(
@@ -65,24 +68,41 @@ def cli():
 )
 @click.option("--grad-clip", type=float, help="Gradient clipping")
 def graph_matching_siamese_train(**kwargs):
-
     def require_options(option, value, required_option: str | list[str]):
         if not isinstance(required_option, list):
             required_option = [required_option]
         for r in required_option:
             if kwargs[option] == value:
                 if kwargs[r] is None:
-                    raise click.BadOptionUsage(r, f"'{r}' must be set for {option}={value}")
-    
-    require_options("model", "GCN", required_option=["layers", "features", "out_features"])
-    require_options("model", "GIN", required_option=["layers", "features", "out_features"])
-    require_options("model", "GAT", required_option=["layers", "features", "heads", "out_features"])
-    require_options("model", "GatedGCN", required_option=["layers", "features", "out_features"])
-    require_options("model", "GATv2", required_option=["layers", "features", "heads", "out_features"])
+                    raise click.BadOptionUsage(
+                        r, f"'{r}' must be set for {option}={value}"
+                    )
+
+    require_options(
+        "model", "GCN", required_option=["layers", "features", "out_features"]
+    )
+    require_options(
+        "model", "GIN", required_option=["layers", "features", "out_features"]
+    )
+    require_options(
+        "model", "GAT", required_option=["layers", "features", "heads", "out_features"]
+    )
+    require_options(
+        "model", "GatedGCN", required_option=["layers", "features", "out_features"]
+    )
+    require_options(
+        "model",
+        "GATv2",
+        required_option=["layers", "features", "heads", "out_features"],
+    )
 
     require_options("optimizer", "adam", required_option=["lr", "grad_clip"])
-    require_options("optimizer", "adam-one-cycle", required_option=["max_lr", "start_factor", "end_factor", "grad_clip"])
-    
+    require_options(
+        "optimizer",
+        "adam-one-cycle",
+        required_option=["max_lr", "start_factor", "end_factor", "grad_clip"],
+    )
+
     gnnco.siamese_gm.train(**kwargs)
 
 

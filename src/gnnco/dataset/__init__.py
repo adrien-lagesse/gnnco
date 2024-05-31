@@ -9,19 +9,30 @@ from gnnco._core import SparseGraph
 
 
 class GMDataset(torch.utils.data.Dataset):
+    single_base_graph: bool
+
     base_graphs: dict[int, SparseGraph]
     corrupted_graphs: dict[int, SparseGraph]
     base_signals: dict[int, torch.FloatTensor]
     corrupted_signals: dict[int, torch.FloatTensor]
     qap_values: dict[int, float]
 
-    def __init__(self, root: str | os.PathLike, *, validation: bool = False) -> None:
+    def __init__(
+        self,
+        root: str | os.PathLike,
+        *,
+        validation: bool = False,
+        single_base_graph: bool = False,
+    ) -> None:
         super().__init__()
+        self.single_base_graph = single_base_graph
         prefix = "val" if validation else "train"
         try:
             orders = {
                 int(k): v
-                for k, v in load_file(os.path.join(root, f"{prefix}-orders.safetensors")).items()
+                for k, v in load_file(
+                    os.path.join(root, f"{prefix}-orders.safetensors")
+                ).items()
             }
             self.base_graphs = {
                 int(k): SparseGraph(
@@ -63,29 +74,41 @@ class GMDataset(torch.utils.data.Dataset):
 
     @override
     def __len__(self) -> int:
-        return len(self.base_graphs)
+        return len(self.corrupted_graphs)
 
     @override
-    def __getitem__(self, index) -> tuple[SparseGraph, SparseGraph, torch.FloatTensor, torch.FloatTensor, float]:
-        return (
-            self.base_graphs[index],
-            self.corrupted_graphs[index],
-            self.base_signals[index],
-            self.corrupted_signals[index],
-            self.qap_values[index],
-        )
-    
+    def __getitem__(
+        self, index
+    ) -> tuple[SparseGraph, SparseGraph, torch.FloatTensor, torch.FloatTensor, float]:
+        if self.single_base_graph:
+            return (
+                self.base_graphs[0],
+                self.corrupted_graphs[index],
+                self.base_signals[0],
+                self.corrupted_signals[index],
+                self.qap_values[index],
+            )
+        else:
+            return (
+                self.base_graphs[index],
+                self.corrupted_graphs[index],
+                self.base_signals[index],
+                self.corrupted_signals[index],
+                self.qap_values[index],
+            )
+
     @override
     def __iter__(self) -> Self:
         self.iter_index = 0
         return self
-    
+
     @override
-    def __next__(self) -> tuple[SparseGraph, SparseGraph, torch.FloatTensor, torch.FloatTensor, float]:
+    def __next__(
+        self,
+    ) -> tuple[SparseGraph, SparseGraph, torch.FloatTensor, torch.FloatTensor, float]:
         if self.iter_index < len(self):
             res = self[self.iter_index]
             self.iter_index += 1
             return res
         else:
             raise StopIteration
-    
