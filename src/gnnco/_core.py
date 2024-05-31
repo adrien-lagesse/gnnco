@@ -523,7 +523,7 @@ class BatchedSignals:
         # Check if all graphs are on the same device
         def _check(tensor) -> None:
             assert (
-                tensor.device == signals[0].device()
+                tensor.device == signals[0].device
             ), "all graphs must be on the same device"
             assert (
                 tensor.dim() == 2 and tensor.shape[1] == signals[0].shape[1]
