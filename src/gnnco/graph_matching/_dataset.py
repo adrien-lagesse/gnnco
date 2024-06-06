@@ -11,9 +11,10 @@ from safetensors.torch import load_file
 
 from .._core import SparseGraph
 
-GMDatasetItem = NamedTuple(
-    "GMDatasetItem", base_graph=SparseGraph, corrupted_graph=SparseGraph
-)
+
+class GMDatasetItem(NamedTuple):
+    base_graph: SparseGraph
+    corrupted_graph: SparseGraph
 
 
 class GMDataset(torch.utils.data.Dataset):

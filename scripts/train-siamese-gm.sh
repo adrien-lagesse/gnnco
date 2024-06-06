@@ -1,20 +1,18 @@
-rye run gnnco-train siamese-gm \
-    --dataset  "/scratch/jlagesse/gnnco/dataset-karateclub/KarateClub-[0.5]" \
-    --experiment "KarateClub-[0.5]" \
-    --run-name "0.5 GCN 5" \
-    --beta  0.5 \
-    --epochs 100 \
+rye run gm-train \
+    --dataset  "/home/jlagesse/gnnco/data/ER[100,8,0.08]" \
+    --experiment "NEW LIBRARY" \
+    --run-name "ER[100,8,0.08]" \
+    --epochs 500 \
     --batch-size 50 \
     --cuda \
-    --single-base-graph \
-    --log-frequency 1 \
+    --log-frequency 10 \
     --no-profile \
     --model GCN \
         --layers 5 \
-        --features 64 \
-        --out-features 64 \
+        --features 128 \
+        --out-features 128 \
     --optimizer adam-one-cycle \
-        --max-lr 8e-4 \
+        --max-lr 8e-3 \
         --start-factor 5 \
         --end-factor 500 \
         --grad-clip 0.1

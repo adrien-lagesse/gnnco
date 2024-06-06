@@ -488,8 +488,6 @@ class BatchedSignals:
 
     _signals: torch.Tensor
     _batch: torch.LongTensor
-    # Information that can be computed during the batching process to enable quick padding during training
-    _paddable_information: tuple[torch.Size, torch.LongTensor] = None
 
     def __init__(
         self,
