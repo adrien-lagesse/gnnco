@@ -1,18 +1,19 @@
 rye run gm-train \
-    --dataset  "/home/jlagesse/gnnco/data/ER[100,8,0.08]" \
+    --dataset  "/home/jlagesse/gnnco/data/ER[100,8,0.18]" \
     --experiment "NEW LIBRARY" \
-    --run-name "ER[100,8,0.08]" \
+    --run-name "ER[100,8,0.18]" \
     --epochs 500 \
-    --batch-size 50 \
+    --batch-size 250 \
     --cuda \
     --log-frequency 10 \
     --no-profile \
-    --model GCN \
-        --layers 5 \
-        --features 128 \
-        --out-features 128 \
+    --model GAT \
+        --layers 4 \
+        --heads 8 \
+        --features 64 \
+        --out-features 64 \
     --optimizer adam-one-cycle \
-        --max-lr 8e-3 \
+        --max-lr 8e-4 \
         --start-factor 5 \
         --end-factor 500 \
         --grad-clip 0.1

@@ -34,10 +34,10 @@ def gm_dataset_stats(dataset: pathlib.Path, text: bool):
             graph_stats["base_order"].append(item.base_graph.order())
             graph_stats["corrupted_order"].append(item.corrupted_graph.order())
             graph_stats["base_density"].append(
-                item.base_graph.size() / item.base_graph.order()
+                2*item.base_graph.size() / item.base_graph.order()
             )
             graph_stats["corrupted_density"].append(
-                item.corrupted_graph.size() / item.corrupted_graph.order()
+                2*item.corrupted_graph.size() / item.corrupted_graph.order()
             )
 
             min_node = min(item.base_graph.order(), item.corrupted_graph.order())

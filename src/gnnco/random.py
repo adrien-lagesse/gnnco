@@ -24,7 +24,7 @@ def erdos_renyi(
     batch = torch.empty(size=(nb_graphs, order, order), dtype=torch.bool).bernoulli_(p)
 
     if not directed:
-        tri_up = batch.triu(-1)
+        tri_up = batch.triu(0)
         batch = tri_up | tri_up.transpose(1, 2)
 
     if self_loops is not None:

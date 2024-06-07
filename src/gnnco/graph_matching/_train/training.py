@@ -20,6 +20,10 @@ from .utils import (
 )
 
 
+def forward_pass(model, batch):
+    pass
+
+
 def siamese_similarity(
     model: torch.nn.Module, batch: GMDatasetBatch
 ) -> torch.FloatTensor:
@@ -37,14 +41,14 @@ def siamese_similarity(
         requires_grad=True
     )
 
-    padded_base[batch.padded_batch >= 0].copy_(embeddings_base.x())
+    padded_base = padded_base[batch.padded_batch >= 0].copy_(embeddings_base.x())
 
     padded_corrupted = torch.zeros(
         (len(batch.padded_batch), embeddings_corrupted.dim()),
         device=embeddings_corrupted.device(),
         requires_grad=True
     )
-    padded_corrupted[batch.padded_batch >= 0].copy_(embeddings_corrupted.x())
+    padded_corrupted = padded_corrupted[batch.padded_batch >= 0].copy_(embeddings_corrupted.x())
 
     alignement_similarities = torch.bmm(
         padded_base.reshape((len(batch), -1, embeddings_base.dim())),
@@ -60,8 +64,10 @@ def siamese_similarity(
 def batched_loss(
     similarity_matrix: torch.FloatTensor, mask: torch.BoolTensor
 ) -> torch.FloatTensor:
-    logits = torch.softmax(similarity_matrix - 100 * torch.logical_not(mask), dim=1)
-    loss = (-torch.log(torch.diag(logits) + 1e-7) * mask).mean()
+    similarity_matrix.masked_fill_(torch.logical_not(mask), -float('inf'))
+    diag_logits = torch.diag(torch.softmax(similarity_matrix, dim=1))
+    diag_logits.masked_fill_(torch.logical_not(mask), 1)
+    loss = -torch.log(diag_logits + 1e-7).mean()
     return loss
 
 
@@ -205,7 +211,7 @@ def train(
         mlflow.log_params(get_kwargs())
 
         # Load the training and validation datasets and build suitable loaders to batch the graphs together.
-        (_, _, train_loader, val_loader) = setup_data(
+        (train_dataset, val_dataset, train_loader, val_loader) = setup_data(
             dataset_path=dataset,
             batch_size=batch_size,
         )
@@ -252,14 +258,12 @@ def train(
                 gnn_model.zero_grad()
 
                 similarity_matrices = siamese_similarity(gnn_model, batch)
-                assert similarity_matrices.requires_grad, "Err grad requirement"
                 masks = (batch.padded_batch >= 0).reshape((len(batch), -1))
 
                 losses = compute_losses(similarity_matrices, masks)
-
                 loss = losses.mean()
                 loss.backward()
-                #torch.nn.utils.clip_grad_value_(gnn_model.parameters(), grad_clip)
+                torch.nn.utils.clip_grad_value_(gnn_model.parameters(), grad_clip)
                 gnn_optimizer.step()
             gnn_scheduler.step()
 

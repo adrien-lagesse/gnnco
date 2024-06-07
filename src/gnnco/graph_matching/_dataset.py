@@ -66,7 +66,7 @@ class GMDataset(torch.utils.data.Dataset):
                 ).items()
             }
 
-            self.single_base_graph = len(self.base_graphs) > 1
+            self.single_base_graph = not (len(self.base_graphs) > 1)
 
         except:  # noqa: E722
             raise RuntimeError("Unable to load database")
