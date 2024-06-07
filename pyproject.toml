@@ -28,6 +28,8 @@ gm-generate-corafull = "gnnco.graph_matching._scripts.generate_cora_full:main"
 
 gm-train = "gnnco.graph_matching._scripts.train:main"
 
+gm-data-stats = "gnnco.graph_matching._scripts.data_stats:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
