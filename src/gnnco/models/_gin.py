@@ -19,7 +19,7 @@ class GIN(torch.nn.Module):
                     nn=torch.nn.Sequential(
                         torch.nn.Linear(features, features),
                         torch.nn.ReLU(),
-                        torch.nn.Linear(features, features, bias=(i % GN_FREQ == 0))
+                        torch.nn.Linear(features, features, bias=(i % GN_FREQ == 0)),
                     )
                 )
                 for i in range(layers - 1)
@@ -30,7 +30,9 @@ class GIN(torch.nn.Module):
         )
         self.linear = torch.nn.Linear(features, out_features)
 
-    def forward(self, batched_signals: BatchedSignals, batched_graphs: BatchedSparseGraphs) -> BatchedSignals:
+    def forward(
+        self, batched_signals: BatchedSignals, batched_graphs: BatchedSparseGraphs
+    ) -> BatchedSignals:
         x = batched_signals.x()
         edge_index = batched_graphs.edge_index()
         x = F.relu(self.layer0(x, edge_index))

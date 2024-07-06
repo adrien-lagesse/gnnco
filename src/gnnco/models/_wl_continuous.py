@@ -11,13 +11,12 @@ class WLContinuous(torch.nn.Module):
         assert layers > 0
 
         self.layers = torch.nn.ModuleList(
-            [
-                WLConvContinuous()
-                for i in range(layers - 1)
-            ]
+            [WLConvContinuous() for i in range(layers - 1)]
         )
 
-    def forward(self, batched_signals: BatchedSignals, batched_graphs: BatchedSparseGraphs) -> BatchedSignals:
+    def forward(
+        self, batched_signals: BatchedSignals, batched_graphs: BatchedSparseGraphs
+    ) -> BatchedSignals:
         x = batched_signals.x()
         edge_index = batched_graphs.edge_index()
         x = F.relu(self.layer0(x, edge_index))

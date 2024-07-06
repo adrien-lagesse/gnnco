@@ -3,6 +3,7 @@ import statistics
 from typing import Literal, NamedTuple
 from urllib.parse import unquote, urlparse
 
+import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import torch
@@ -10,7 +11,8 @@ import torch.utils.data
 from safetensors.torch import save_model
 from scipy.optimize import linear_sum_assignment
 
-from ..._core import BatchedSignals
+from gnnco._core import BatchedSignals
+
 from .utils import (
     GMDatasetBatch,
     get_kwargs,
@@ -18,10 +20,6 @@ from .utils import (
     optimizer_factory,
     setup_data,
 )
-
-
-def forward_pass(model, batch):
-    pass
 
 
 def siamese_similarity(
@@ -36,19 +34,23 @@ def siamese_similarity(
     )
 
     padded_base = torch.zeros(
-        (len(batch.padded_batch), embeddings_base.dim()),
+        (batch.base_node_masks.numel(), embeddings_base.dim()),
         device=embeddings_base.device(),
-        requires_grad=True
+        requires_grad=True,
     )
 
-    padded_base = padded_base[batch.padded_batch >= 0].copy_(embeddings_base.x())
+    padded_base = padded_base.masked_scatter(
+        batch.base_node_masks.reshape(-1, 1), embeddings_base.x()
+    )
 
     padded_corrupted = torch.zeros(
-        (len(batch.padded_batch), embeddings_corrupted.dim()),
+        (batch.corrupted_node_masks.numel(), embeddings_corrupted.dim()),
         device=embeddings_corrupted.device(),
-        requires_grad=True
+        requires_grad=True,
     )
-    padded_corrupted = padded_corrupted[batch.padded_batch >= 0].copy_(embeddings_corrupted.x())
+    padded_corrupted = padded_corrupted.masked_scatter(
+        batch.corrupted_node_masks.reshape(-1, 1), embeddings_corrupted.x()
+    )
 
     alignement_similarities = torch.bmm(
         padded_base.reshape((len(batch), -1, embeddings_base.dim())),
@@ -61,10 +63,10 @@ def siamese_similarity(
 
 
 @torch.vmap
-def batched_loss(
+def __compute_losses(
     similarity_matrix: torch.FloatTensor, mask: torch.BoolTensor
 ) -> torch.FloatTensor:
-    similarity_matrix.masked_fill_(torch.logical_not(mask), -float('inf'))
+    similarity_matrix.masked_fill_(torch.logical_not(mask), -float("inf"))
     diag_logits = torch.diag(torch.softmax(similarity_matrix, dim=1))
     diag_logits.masked_fill_(torch.logical_not(mask), 1)
     loss = -torch.log(diag_logits + 1e-7).mean()
@@ -74,7 +76,11 @@ def batched_loss(
 def compute_losses(
     similarity_matrices: torch.FloatTensor, masks: torch.BoolTensor
 ) -> torch.FloatTensor:
-    return batched_loss(
+    """
+    similarity_matrix: (batch_size, max_nb_node, max_nb_node)
+    masks: (batch_size, max_nb_node) s.t masks[i] = [True*nb_node, False*(max_nb_node - nb_node)]
+    """
+    return __compute_losses(
         similarity_matrices,
         masks,
     )
@@ -86,35 +92,82 @@ class AccuraciesResults(NamedTuple):
     top5: torch.FloatTensor
 
 
-def __top_k_accuracy(
-    alignement_similarity: torch.FloatTensor, mask: torch.BoolTensor, top_n: int
-) -> torch.FloatTensor:
-    _, indices = torch.sort(
-        torch.masked_fill(
-            alignement_similarity, torch.logical_not(mask), -float("inf")
-        ),
-        descending=True,
-    )
-    mask = mask.float()
-    m = (
-        torch.isin(torch.arange(len(alignement_similarity), device=alignement_similarity.device), indices[:, :top_n])
-        .float()
-        .squeeze()
-    )
-    acc = (m * mask).sum() / (mask.sum())
-    return acc
+# def __top_k_accuracy(
+#     alignement_similarity: torch.FloatTensor, mask: torch.BoolTensor, top_n: int
+# ) -> torch.FloatTensor:
+#     _, indices = torch.sort(
+#         torch.masked_fill(
+#             alignement_similarity, torch.logical_not(mask), -float("inf")
+#         ),
+#         descending=True,
+#     )
+#     mask = mask.float()
+#     m = (
+#         torch.isin(torch.arange(len(alignement_similarity), device=alignement_similarity.device), indices[:, :top_n])
+#         .float()
+#         .squeeze()
+#     )
+#     acc = (m * mask).sum() / (mask.sum())
+#     return acc
+
+
+# @torch.no_grad
+# def compute_accuracies(
+#     alignement_similarities: torch.FloatTensor, masks: torch.BoolTensor
+# ) -> AccuraciesResults:
+#     batched_top_k_accuracy = torch.vmap(__top_k_accuracy, in_dims=(0, 0, None))
+#     return AccuraciesResults(
+#         top1=batched_top_k_accuracy(alignement_similarities, masks, 1),
+#         top3=batched_top_k_accuracy(alignement_similarities, masks, 3),
+#         top5=batched_top_k_accuracy(alignement_similarities, masks, 5),
+#     )
 
 
 @torch.no_grad
 def compute_accuracies(
     alignement_similarities: torch.FloatTensor, masks: torch.BoolTensor
 ) -> AccuraciesResults:
-    batched_top_k_accuracy = torch.vmap(__top_k_accuracy, in_dims=(0, 0, None))
-    return AccuraciesResults(
-        top1=batched_top_k_accuracy(alignement_similarities, masks, 1),
-        top3=batched_top_k_accuracy(alignement_similarities, masks, 3),
-        top5=batched_top_k_accuracy(alignement_similarities, masks, 5),
+    top1 = torch.empty(
+        (len(alignement_similarities),),
+        dtype=torch.float,
+        device=alignement_similarities.device,
     )
+    top3 = torch.empty(
+        (len(alignement_similarities),),
+        dtype=torch.float,
+        device=alignement_similarities.device,
+    )
+    top5 = torch.empty(
+        (len(alignement_similarities),),
+        dtype=torch.float,
+        device=alignement_similarities.device,
+    )
+    for i, similarity_matrix in enumerate(alignement_similarities):
+        similarity_matrix = similarity_matrix[masks[i]]
+        _, indices = torch.sort(similarity_matrix, descending=True)
+
+        top1_indices = indices[:, :1].detach().cpu()
+        top1[i] = float(
+            torch.isin(torch.arange(len(similarity_matrix)), top1_indices)
+            .float()
+            .mean()
+        )
+
+        top3_indices = indices[:, :3].detach().cpu()
+        top3[i] = float(
+            torch.isin(torch.arange(len(similarity_matrix)), top3_indices)
+            .float()
+            .mean()
+        )
+
+        top5_indices = indices[:, :5].detach().cpu()
+        top5[i] = float(
+            torch.isin(torch.arange(len(similarity_matrix)), top5_indices)
+            .float()
+            .mean()
+        )
+
+    return AccuraciesResults(top1=top1, top3=top3, top5=top5)
 
 
 class LAPResults(NamedTuple):
@@ -159,11 +212,48 @@ def compute_metrics(
     }
 
     batch: GMDatasetBatch
-    for batch in loader:
+    for i, batch in enumerate(loader):
         batch = batch.to(device)
 
         similarity_matrices = siamese_similarity(model, batch)
-        masks = (batch.padded_batch >= 0).reshape((len(batch), -1))
+        if i == 0:
+            for j in range(5):
+                graph_order = batch.base_graphs[j].order()
+
+                plt.imshow(batch.base_graphs[j].adj().float().detach().cpu().numpy())
+                mlflow.log_figure(plt.gcf(), f"adj_{j}.png")
+
+                plt.imshow(
+                    torch.logical_xor(
+                        batch.base_graphs[j].adj(), batch.corrupted_graphs[j].adj()
+                    )
+                    .float()
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
+                mlflow.log_figure(plt.gcf(), f"diff_adj_{j}.png")
+
+                plt.imshow(
+                    similarity_matrices[j]
+                    .float()
+                    .detach()
+                    .cpu()
+                    .numpy()[:graph_order, :graph_order]
+                )
+                mlflow.log_figure(plt.gcf(), f"sim_{j}.png")
+
+                plt.imshow(
+                    torch.softmax(similarity_matrices[j], dim=1)
+                    .float()
+                    .detach()
+                    .cpu()
+                    .numpy()[:graph_order, :graph_order]
+                )
+                mlflow.log_figure(plt.gcf(), f"softmax_sim_{j}.png")
+        masks = (
+            batch.base_node_masks
+        )  # The algorithm doesn't work with different size graph pairs
 
         losses = compute_losses(similarity_matrices, masks)
         metrics_l["loss"].append(float(losses.mean()))
@@ -249,24 +339,6 @@ def train(
         for epoch in range(epochs):
             mlflow.log_metric("learning_rate", gnn_scheduler.get_last_lr()[0], epoch)
 
-            # Training loop
-            gnn_model.train()
-            batch: GMDatasetBatch
-            for batch in train_loader:
-                batch = batch.to(device)
-
-                gnn_model.zero_grad()
-
-                similarity_matrices = siamese_similarity(gnn_model, batch)
-                masks = (batch.padded_batch >= 0).reshape((len(batch), -1))
-
-                losses = compute_losses(similarity_matrices, masks)
-                loss = losses.mean()
-                loss.backward()
-                torch.nn.utils.clip_grad_value_(gnn_model.parameters(), grad_clip)
-                gnn_optimizer.step()
-            gnn_scheduler.step()
-
             # Metrics Logging
             if epoch % log_frequency == 0:
                 gnn_model.eval()
@@ -282,6 +354,27 @@ def train(
                 }
                 mlflow.log_metrics(train_metrics, epoch)
                 mlflow.log_metrics(val_metrics, epoch)
+
+            # Training loop
+            gnn_model.train()
+            batch: GMDatasetBatch
+            for i, batch in enumerate(train_loader):
+                batch = batch.to(device)
+
+                gnn_model.zero_grad()
+
+                similarity_matrices = siamese_similarity(gnn_model, batch)
+                masks = batch.base_node_masks
+
+                losses = compute_losses(similarity_matrices, masks)
+                loss = losses.mean()
+                loss.backward()
+                torch.nn.utils.clip_grad_value_(gnn_model.parameters(), grad_clip)
+                gnn_optimizer.step()
+                mlflow.log_metric(
+                    "minibatch_loss", float(loss.data), step=i + epoch * batch_size
+                )
+            gnn_scheduler.step()
 
         checkpoint_path = unquote(
             urlparse(run.info.artifact_uri + "/checkpoint.safetensors").path

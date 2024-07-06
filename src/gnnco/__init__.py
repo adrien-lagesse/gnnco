@@ -15,13 +15,14 @@ __all__ = [
     "BatchedSparseGraphs",
     "DenseGraph",
     "SparseGraph",
-    "dataset",
+    "chem",
+    "graph_matching",
     "models",
     "random",
-    "siamese_gm"
+    "visualization",
 ]
 
-from . import dataset, models, random, siamese_gm
+from . import chem, graph_matching, models, random, visualization
 from ._core import (
     BatchedDenseGraphs,
     BatchedSignals,

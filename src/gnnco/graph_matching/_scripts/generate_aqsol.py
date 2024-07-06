@@ -3,12 +3,11 @@ import pathlib
 
 import click
 import torch
+from gnnco import BatchedDenseGraphs, SparseGraph
+from gnnco.random import bernoulli_corruption
 from safetensors.torch import save_file
-from torch_geometric.datasets import QM7b
+from torch_geometric.datasets import AQSOL
 from tqdm.auto import tqdm
-
-from ..._core import BatchedDenseGraphs, SparseGraph
-from ...random import bernoulli_corruption
 
 
 @click.command()
@@ -26,21 +25,18 @@ from ...random import bernoulli_corruption
     help="Bernouilli noise corruption",
 )
 @click.option("--cuda/--cpu", default=False, show_default=True, help="Backend")
-def graph_matching_qm7b(
+def graph_matching_aqsol(
     *,
     output_dir: str | os.PathLike,
     noise: float,
     cuda: bool,
 ):
-    """Generate a Graph Matching Dataset by perturbating Erdos-Renyi graphs"""
+    """Generate a Graph Matching Dataset by perturbating AQSOL molecular graphs"""
 
-    SPLIT = 6200  # train set 86%, validation set 14%
-    QM7B_ROOT = ".tmp/QM7b"
+    AQSOL_ROOT = ".tmp/AQSOL"
 
-
-    dataset = QM7b(root=QM7B_ROOT)
-    train_dataset = dataset[:SPLIT]
-    validation_dataset = dataset[SPLIT:]
+    train_dataset = AQSOL(root=AQSOL_ROOT, split="train")
+    validation_dataset = AQSOL(root=AQSOL_ROOT, split="val")
 
     os.makedirs(output_dir)
 
@@ -60,18 +56,19 @@ def graph_matching_qm7b(
                 for data in sparse_dataset
             ]
 
-            for i, base_graph_sparse in tqdm(enumerate(sparse_graphs), total=len(sparse_graphs)):
+            for i, base_graph_sparse in tqdm(
+                enumerate(sparse_graphs), total=len(sparse_graphs)
+            ):
                 orders_dict[str(i)] = torch.tensor(
                     [base_graph_sparse.order(), base_graph_sparse.order()],
                     dtype=torch.long,
                 )
                 base_graphs_dict[str(i)] = base_graph_sparse.edge_index()
                 base_graph_dense = base_graph_sparse.to_dense()
-                edge_probability = base_graph_dense.size()/(base_graph_dense.order()*(base_graph_dense.order()-1))
                 corrupted_graph_dense = bernoulli_corruption(
                     BatchedDenseGraphs.from_graphs([base_graph_dense]),
                     noise,
-                    noise*edge_probability/(1-edge_probability),
+                    type="graph_normalized",
                 )[0]
                 corrupted_graphs_dict[str(i)] = corrupted_graph_dense.edge_index()
 
@@ -99,7 +96,8 @@ def graph_matching_qm7b(
 
 
 def main():
-    graph_matching_qm7b()
+    graph_matching_aqsol()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

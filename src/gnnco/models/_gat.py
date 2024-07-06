@@ -22,11 +22,13 @@ class GAT(torch.nn.Module):
             ]
         )
         self.gns = torch.nn.ModuleList(
-            [GraphNorm(features) for _ in range(layers // GN_FREQ +1)]
+            [GraphNorm(features) for _ in range(layers // GN_FREQ + 1)]
         )
         self.linear = torch.nn.Linear(features, out_features)
 
-    def forward(self, batched_signals: BatchedSignals, batched_graphs: BatchedSparseGraphs) -> BatchedSignals:
+    def forward(
+        self, batched_signals: BatchedSignals, batched_graphs: BatchedSparseGraphs
+    ) -> BatchedSignals:
         x = batched_signals.x()
         edge_index = batched_graphs.edge_index()
         x = F.relu(self.layer0(x, edge_index))

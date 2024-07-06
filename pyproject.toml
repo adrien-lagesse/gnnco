@@ -22,7 +22,7 @@ requires-python = ">= 3.12"
 
 [project.scripts]
 gm-generate-er = "gnnco.graph_matching._scripts.generate_erdos_renyi:main"
-gm-generate-qm7b = "gnnco.graph_matching._scripts.generate_qm7b:main"
+gm-generate-aqsol = "gnnco.graph_matching._scripts.generate_aqsol:main"
 gm-generate-karateclub = "gnnco.graph_matching._scripts.generate_karate_club:main"
 gm-generate-corafull = "gnnco.graph_matching._scripts.generate_cora_full:main"
 

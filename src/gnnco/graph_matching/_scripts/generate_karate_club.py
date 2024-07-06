@@ -3,12 +3,11 @@ import pathlib
 
 import click
 import torch
+from gnnco._core import BatchedDenseGraphs, SparseGraph
+from gnnco.random import bernoulli_corruption
 from safetensors.torch import save_file
 from torch_geometric.datasets import KarateClub
 from tqdm.auto import tqdm
-
-from ..._core import BatchedDenseGraphs, SparseGraph
-from ...random import bernoulli_corruption
 
 
 @click.command()
@@ -38,7 +37,7 @@ def graph_matching_karate_club(
     noise: float,
     cuda: bool,
 ):
-    """Generate a Graph Matching Dataset by perturbating Erdos-Renyi graphs"""
+    """Generate a Graph Matching Dataset by perturbating the KarateClub graph"""
 
     dataset = KarateClub()
     edge_index = dataset.edge_index
@@ -63,10 +62,6 @@ def graph_matching_karate_club(
 
             base_graph_dense = base_graph_sparse.to_dense()
 
-            edge_probability = base_graph_dense.size() / (
-                num_nodes * (num_nodes - 1)
-            )
-
             for i in tqdm(range(N), total=N):
                 orders_dict[str(i)] = torch.tensor(
                     [base_graph_sparse.order(), base_graph_sparse.order()],
@@ -75,7 +70,6 @@ def graph_matching_karate_club(
                 corrupted_graph_dense = bernoulli_corruption(
                     BatchedDenseGraphs.from_graphs([base_graph_dense]),
                     noise,
-                    noise * edge_probability / (1 - edge_probability),
                 )[0]
                 corrupted_graphs_dict[str(i)] = corrupted_graph_dense.edge_index()
 
@@ -93,12 +87,14 @@ def graph_matching_karate_club(
             corrupted_graphs_dict,
             filename=os.path.join(output_dir, f"{prefix}-corrupted-graphs.safetensors"),
         )
+
     print()
     print("------ Generating the training dataset   ------")
     generate_and_save(n_graphs, prefix="train")
     print()
     print("------ Generating the validation dataset -----")
     generate_and_save(n_val_graphs, prefix="val")
+
 
 def main():
     graph_matching_karate_club()

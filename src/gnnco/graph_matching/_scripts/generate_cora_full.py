@@ -3,12 +3,11 @@ import pathlib
 
 import click
 import torch
+from gnnco._core import BatchedDenseGraphs, SparseGraph
+from gnnco.random import bernoulli_corruption
 from safetensors.torch import save_file
 from torch_geometric.datasets import CoraFull
 from tqdm.auto import tqdm
-
-from ..._core import BatchedDenseGraphs, SparseGraph
-from ...random import bernoulli_corruption
 
 
 @click.command()
@@ -38,9 +37,9 @@ def graph_matching_cora_full(
     noise: float,
     cuda: bool,
 ):
-    """Generate a Graph Matching Dataset by perturbating Erdos-Renyi graphs"""
+    """Generate a Graph Matching Dataset by perturbating the CoraFull graph"""
 
-    CORAFULL_ROOT = ".tmp/CoraFull"  # To be changed to .tmp/CoraFull
+    CORAFULL_ROOT = ".tmp/CoraFull"
     dataset = CoraFull(root=CORAFULL_ROOT)
     edge_index = dataset.edge_index
     num_nodes = int(torch.max(dataset.edge_index) + 1)
@@ -64,8 +63,6 @@ def graph_matching_cora_full(
 
             base_graph_dense = base_graph_sparse.to_dense()
 
-            edge_probability = base_graph_dense.size() / (num_nodes * (num_nodes - 1))
-
             for i in tqdm(range(N), total=N):
                 orders_dict[str(i)] = torch.tensor(
                     [base_graph_sparse.order(), base_graph_sparse.order()],
@@ -74,7 +71,6 @@ def graph_matching_cora_full(
                 corrupted_graph_dense = bernoulli_corruption(
                     BatchedDenseGraphs.from_graphs([base_graph_dense]),
                     noise,
-                    noise * edge_probability / (1 - edge_probability),
                 )[0]
                 corrupted_graphs_dict[str(i)] = corrupted_graph_dense.edge_index()
 

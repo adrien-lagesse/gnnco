@@ -33,10 +33,11 @@ class SparseGraph:
         assert len(senders) == len(
             receivers
         ), "'senders' and 'receivers' must be of the same length"
-        assert (
-            int(torch.max(senders) + 1) <= order
-            and int(torch.max(receivers) + 1) <= order
-        ), "'senders' and 'receivers' refer to a node bigger than the order"
+        if len(senders) != 0:
+            assert (
+                int(torch.max(senders) + 1) <= order
+                and int(torch.max(receivers) + 1) <= order
+            ), "'senders' and 'receivers' refer to a node bigger than the order"
         assert (
             senders.device == receivers.device
         ), "'senders' and 'receivers' must be on the same device"
@@ -97,8 +98,8 @@ class SparseGraph:
         Returns the edge index matrix of dim [2,num_edges] (used in torch_geometric).
         """
         return torch.vstack([self._senders, self._receivers])
-    
-    def to_batch(self) -> 'BatchedSparseGraphs':
+
+    def to_batch(self) -> "BatchedSparseGraphs":
         """
         Returns a batch with only this graph inside
         """
@@ -151,7 +152,7 @@ class BatchedSparseGraphs:
         no_check: bool = False,
     ) -> None:
         """
-        Create a graph with vertices {0,...,orders[0] - 1, ..., orders[0] +orders[1] -1,..., orders[0]+...+orders[n] -1} with 
+        Create a graph with vertices {0,...,orders[0] - 1, ..., orders[0] +orders[1] -1,..., orders[0]+...+orders[n] -1} with
         the directed edges (senders[i], receivers[i]) for all i in len(senders) (=len(receivers)).
 
         ## Parameters
@@ -292,6 +293,19 @@ class BatchedSparseGraphs:
         """
         return torch.vstack([self._senders, self._receivers])
 
+    def orders(self) -> torch.LongTensor:
+        return self._orders
+
+    def get_masks(self) -> torch.BoolTensor:
+        """
+        Return a mask where where masks[i] = [True*nb_node, False*(max_node - nb_node)]
+        """
+        masks = torch.arange(int(torch.max(self._orders))).repeat(len(self)).reshape(
+            (len(self), -1)
+        ) < self._orders.reshape((-1, 1))
+
+        return masks
+
 
 class DenseGraph:
     """
@@ -358,8 +372,8 @@ class DenseGraph:
         """
         senders, receivers = self._adj_matrix.nonzero(as_tuple=True)
         return SparseGraph(senders=senders, receivers=receivers, order=self.order())
-    
-    def to_batch(self) -> 'BatchedDenseGraphs':
+
+    def to_batch(self) -> "BatchedDenseGraphs":
         """
         Returns a batch with only this graph inside
         """
@@ -479,6 +493,32 @@ class BatchedDenseGraphs:
         return BatchedSparseGraphs.from_graphs(
             list(map(lambda dense_graph: dense_graph.to_sparse(), self.unbatch()))
         )
+
+    def get_adj(self, i: int) -> torch.BoolTensor:
+        """
+        Get the adjacency matrix of the i-th graph in the batch
+        """
+        return self._stacked_adj_matrices[i, : self._orders[i], : self._orders[i]]
+
+    def get_masks(self) -> torch.BoolTensor:
+        """
+        Return a mask where where masks[i] = [True*nb_node, False*(max_node - nb_node)]
+        """
+        masks = torch.arange(int(torch.max(self._orders))).repeat(len(self)).reshape(
+            (len(self), -1)
+        ) < self._orders.reshape((-1, 1))
+
+        return masks
+
+    def get_stacked_adj(self) -> torch.BoolTensor:
+        """
+        Return the stacked adjacencies matrices.
+        ### Warning : the matrices are padded
+        """
+        return self._stacked_adj_matrices
+
+    def orders(self) -> torch.LongTensor:
+        return self._orders
 
 
 class BatchedSignals:

@@ -4,9 +4,8 @@ import pathlib
 
 import click
 import torch
+from gnnco.random import bernoulli_corruption, erdos_renyi
 from safetensors.torch import save_file
-
-from ...random import bernoulli_corruption, erdos_renyi
 
 
 @click.command()
@@ -49,10 +48,10 @@ def graph_matching_erdos_renyi(
         )
 
         with torch.device("cuda" if cuda else "cpu"):
-            p_edge = density / (order -1)
+            p_edge = density / (order - 1)
             base_graphs = erdos_renyi(N, order, p_edge)
             corrupted_graphs = bernoulli_corruption(
-                base_graphs, p_edge=noise, p_nonedge=noise * p_edge / (1 - p_edge)
+                base_graphs, noise=noise, type="full"
             )
 
         save_file(
@@ -67,6 +66,7 @@ def graph_matching_erdos_renyi(
 
     generate_and_save(n_graphs, prefix="train")
     generate_and_save(n_val_graphs, prefix="val")
+
 
 def main():
     graph_matching_erdos_renyi()

@@ -9,7 +9,7 @@ from typing import NamedTuple, Self, override
 import torch.utils.data
 from safetensors.torch import load_file
 
-from .._core import SparseGraph
+from gnnco._core import SparseGraph
 
 
 class GMDatasetItem(NamedTuple):

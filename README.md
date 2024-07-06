@@ -10,7 +10,7 @@ Several functionalities are provided:
 - Using pretrained GNNs for generating Graph Positional Encodings
 
 
-# Cloning the Repo
+# Running the Repo
 
 We use [Rye](https://rye.astral.sh/) to manage the python project. See the documentation for a complete guide.
 
@@ -23,6 +23,8 @@ We use [Rye](https://rye.astral.sh/) to manage the python project. See the docum
 `echo 'source "$HOME/.rye/env"' >> ~/.zprofile   # For ZSH`
 
 You may have to restart you shell.
+
+### Cloning the repo
 
 `git clone --branch benchmark https://github.com/adrien-lagesse/gnnco.git`
 
@@ -44,7 +46,7 @@ We provide several command line application to generate graph matching datasets:
 - **gm-generate-er** : Generate Erdos-Renyi GM datasets.
 - **gm-generate-karateclub** : Generate GM datasets based on the KarateClub Benchmark dataset.
 - **gm-generate-corafull** : Generate GM datasets based on the CoraFull Benchmark dataset.
-- **gm-generate-qm7b** : Generate GM datasets based on the QM7b Benchmark dataset.
+- **gm-generate-aqsol** : Generate GM datasets based on the AQSOL dataset.
 
 To know more about them run:
 

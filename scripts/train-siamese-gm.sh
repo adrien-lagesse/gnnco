@@ -1,9 +1,9 @@
 rye run gm-train \
-    --dataset  "/home/jlagesse/gnnco/data/ER[100,8,0.18]" \
-    --experiment "NEW LIBRARY" \
-    --run-name "ER[100,8,0.18]" \
+    --dataset  "/home/jlagesse/gnnco/data/ER2[100,8,0.55]" \
+    --experiment "GAT ER2[100,8,0.55]" \
+    --run-name "ER[100,8,0.24]" \
     --epochs 500 \
-    --batch-size 250 \
+    --batch-size 100 \
     --cuda \
     --log-frequency 10 \
     --no-profile \
