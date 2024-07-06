@@ -1,4 +1,8 @@
 {
-    "explorer.excludeGitIgnore": true,
-    "CodeGPT.apiKey": "OpenAI"
+    "files.exclude": {
+        ".ruff_cache": true,
+        ".venv": true,
+        ".vscode": true,
+        "**/__pycache__": true
+    }
 }

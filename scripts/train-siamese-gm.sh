@@ -1,18 +1,17 @@
-rye run gnnco-train siamese-gm \
-    --dataset  "/scratch/jlagesse/gnnco/mixed-dataset/ER[100,_,0.12]" \
-    --experiment "Margin Loss [1] - Mixed - Distance Learning [128]x128" \
-    --run-name "0.999 [100,_,0.12] GAT 8" \
-    --beta  0.999 \
-    --epochs 1000 \
-    --batch-size 50 \
+rye run gm-train \
+    --dataset  "/home/jlagesse/gnnco/data/ER2[100,8,0.55]" \
+    --experiment "GAT ER2[100,8,0.55]" \
+    --run-name "ER[100,8,0.24]" \
+    --epochs 500 \
+    --batch-size 100 \
     --cuda \
-    --log-frequency 5 \
+    --log-frequency 10 \
     --no-profile \
     --model GAT \
-        --layers 8 \
-        --heads 32 \
-        --features 128 \
-        --out-features 128 \
+        --layers 4 \
+        --heads 8 \
+        --features 64 \
+        --out-features 64 \
     --optimizer adam-one-cycle \
         --max-lr 8e-4 \
         --start-factor 5 \

@@ -4,17 +4,11 @@ import pathlib
 
 import click
 import torch
+from gnnco.random import bernoulli_corruption, erdos_renyi
 from safetensors.torch import save_file
 
-from gnnco.random import bernoulli_corruption, erdos_renyi
 
-
-@click.group()
-def cli():
-    pass
-
-
-@cli.command(name="gm")
+@click.command()
 @click.option(
     "-o",
     "--output-dir",
@@ -57,14 +51,8 @@ def graph_matching_erdos_renyi(
             p_edge = density / (order - 1)
             base_graphs = erdos_renyi(N, order, p_edge)
             corrupted_graphs = bernoulli_corruption(
-                base_graphs, p_edge=noise, p_nonedge=noise * p_edge / (1 - p_edge)
+                base_graphs, noise=noise, type="full"
             )
-            qap_values = {
-                str(i): (
-                    base_graphs[i].adj().float() * corrupted_graphs[i].adj().float()
-                ).sum(dim=1)
-                for i in range(N)
-            }
 
         save_file(
             {str(i): base_graphs[i].edge_index() for i in range(N)},
@@ -76,23 +64,9 @@ def graph_matching_erdos_renyi(
             filename=os.path.join(output_dir, f"{prefix}-corrupted-graphs.safetensors"),
         )
 
-        save_file(
-            {str(i): torch.ones([order,1]) for i in range(N)},
-            filename=os.path.join(output_dir, f"{prefix}-base-signals.safetensors"),
-        )
-
-        save_file(
-            {str(i): torch.ones([order,1]) for i in range(N)},
-            filename=os.path.join(output_dir, f"{prefix}-corrupted-signals.safetensors"),
-        )
-
-        save_file(
-            qap_values,
-            filename=os.path.join(output_dir, f"{prefix}-qap-values.safetensors"),
-        )
-
     generate_and_save(n_graphs, prefix="train")
     generate_and_save(n_val_graphs, prefix="val")
 
+
 def main():
-    cli()
+    graph_matching_erdos_renyi()
