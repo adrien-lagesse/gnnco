@@ -26,7 +26,7 @@ You may have to restart you shell.
 
 ### Cloning the repo
 
-`git clone --branch benchmark https://github.com/adrien-lagesse/gnnco.git`
+`git clone https://github.com/adrien-lagesse/gnnco.git`
 
 `cd gnnco`
 
