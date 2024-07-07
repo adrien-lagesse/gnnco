@@ -90,7 +90,11 @@ def compare_graphs(
     coordinates: dict[int, tuple[float, float]] | None = None,
 ) -> graphviz.Graph:
     dot = graphviz.Graph(strict=True)
-    dot.graph_attr = {"size": str(size), "layout": "neato"}
+    if coordinates is None:
+        dot.graph_attr = {"size": str(size)}
+    else:
+        dot.graph_attr = {"size": str(size), "layout": "neato"}
+        
     dot.node_attr = {
         "label": "",
         "shape": "circle",

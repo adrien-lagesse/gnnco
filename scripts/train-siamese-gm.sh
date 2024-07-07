@@ -1,19 +1,19 @@
 rye run gm-train \
-    --dataset  "/home/jlagesse/gnnco/data/ER2[100,8,0.55]" \
-    --experiment "GAT ER2[100,8,0.55]" \
-    --run-name "ER[100,8,0.24]" \
+    --dataset  "/home/jlagesse/gnnco/data/ER[100,8,0.12]" \
+    --experiment "GAT ER[100,8,_]" \
+    --run-name "Large GAT ER[100,8,0.12]" \
     --epochs 500 \
     --batch-size 100 \
     --cuda \
     --log-frequency 10 \
     --no-profile \
     --model GAT \
-        --layers 4 \
+        --layers 8 \
         --heads 8 \
-        --features 64 \
+        --features 256 \
         --out-features 64 \
     --optimizer adam-one-cycle \
-        --max-lr 8e-4 \
+        --max-lr 3e-3 \
         --start-factor 5 \
         --end-factor 500 \
         --grad-clip 0.1

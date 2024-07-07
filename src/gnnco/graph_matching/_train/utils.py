@@ -47,22 +47,7 @@ class GMDatasetBatch(NamedTuple):
         return len(self.base_graphs)
 
 
-def setup_data(
-    *,
-    dataset_path: pathlib.Path,
-    batch_size: int,
-    pin_memory: bool = True,
-    shuffle: bool = True,
-    num_workers: int = 4,
-    prefetch_factor: int = 4,
-    persistent_workers: bool = True,
-) -> tuple[
-    GMDataset, GMDataset, torch.utils.data.DataLoader, torch.utils.data.DataLoader
-]:
-    train_dataset = GMDataset(root=dataset_path)
-    val_dataset = GMDataset(root=dataset_path, validation=True)
-
-    def collate_fn(
+def collate_fn(
         batch_l: list[GMDatasetItem],
     ) -> GMDatasetBatch:
         base_batch: BatchedSparseGraphs = BatchedSparseGraphs.from_graphs(
@@ -86,6 +71,21 @@ def setup_data(
             corrupted_signals=corrupted_signal_batch,
             corrupted_node_masks=corrupted_batch.get_masks(),
         )
+
+def setup_data(
+    *,
+    dataset_path: pathlib.Path,
+    batch_size: int,
+    pin_memory: bool = True,
+    shuffle: bool = True,
+    num_workers: int = 4,
+    prefetch_factor: int = 4,
+    persistent_workers: bool = True,
+) -> tuple[
+    GMDataset, GMDataset, torch.utils.data.DataLoader, torch.utils.data.DataLoader
+]:
+    train_dataset = GMDataset(root=dataset_path)
+    val_dataset = GMDataset(root=dataset_path, validation=True)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -111,6 +111,8 @@ def setup_data(
 
     return train_dataset, val_dataset, train_loader, val_loader
 
+def build_visualization_batch(dataset: GMDataset, batch_size: int):
+    return collate_fn([dataset[i] for i in range(batch_size)])
 
 def model_factory(
     *,

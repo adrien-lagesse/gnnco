@@ -3,7 +3,7 @@ import pathlib
 
 import click
 import torch
-from gnnco._core import BatchedDenseGraphs, SparseGraph
+from gnnco import BatchedDenseGraphs, SparseGraph
 from gnnco.random import bernoulli_corruption
 from safetensors.torch import save_file
 from torch_geometric.datasets import CoraFull

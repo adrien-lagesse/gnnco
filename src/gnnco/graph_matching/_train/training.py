@@ -1,5 +1,6 @@
 import pathlib
 import statistics
+import time
 from typing import Literal, NamedTuple
 from urllib.parse import unquote, urlparse
 
@@ -12,14 +13,36 @@ from safetensors.torch import save_model
 from scipy.optimize import linear_sum_assignment
 
 from gnnco._core import BatchedSignals
+from gnnco.visualization import compare_graphs
 
 from .utils import (
     GMDatasetBatch,
+    build_visualization_batch,
     get_kwargs,
     model_factory,
     optimizer_factory,
     setup_data,
 )
+
+# def siamese_similarity(
+#         model: torch.nn.Module, batch: GMDatasetBatch
+# )-> torch.FloatTensor:
+#     embeddings_base: BatchedSignals = model.forward(
+#         batch.base_signals, batch.base_graphs
+#     )
+
+#     embeddings_corrupted: BatchedSignals = model.forward(
+#         batch.corrupted_signals, batch.corrupted_graphs
+#     )
+
+#     alignement_similarities = torch.bmm(
+#         embeddings_base.x().reshape((len(batch), -1, embeddings_base.dim())),
+#         embeddings_corrupted.x().reshape(
+#             (len(batch), -1, embeddings_corrupted.dim())
+#         ).transpose(1, 2),
+#     )
+
+#     return alignement_similarities
 
 
 def siamese_similarity(
@@ -30,7 +53,7 @@ def siamese_similarity(
     )
 
     embeddings_corrupted: BatchedSignals = model.forward(
-        batch.corrupted_signals, batch.base_graphs
+        batch.corrupted_signals, batch.corrupted_graphs
     )
 
     padded_base = torch.zeros(
@@ -60,6 +83,15 @@ def siamese_similarity(
     )
 
     return alignement_similarities
+
+
+# def __compute_losses(
+#     similarity_matrices: torch.FloatTensor, masks: torch.BoolTensor
+# ) -> torch.FloatTensor:
+#     diag_logits = torch.diagonal(torch.softmax(similarity_matrices, dim=-1), dim1=-2, dim2=-1)
+#     losses = -torch.log(diag_logits + 1e-7).mean(dim=-1)
+#     assert losses.shape == torch.Size([len(similarity_matrices),]), f"Wrong loss shape: {losses.shape}"
+#     return losses
 
 
 @torch.vmap
@@ -182,7 +214,7 @@ def compute_lap(
     permuations = []
     lap = []
     for similarity_matrix, mask in zip(alignement_similarities, masks):
-        similarity_matrix = similarity_matrix[mask].cpu().numpy()
+        similarity_matrix = torch.softmax(similarity_matrix[mask], dim=-1).cpu().numpy()
         idx, permutation_pred = linear_sum_assignment(similarity_matrix, maximize=True)
         permuations.append(
             torch.tensor(
@@ -216,41 +248,6 @@ def compute_metrics(
         batch = batch.to(device)
 
         similarity_matrices = siamese_similarity(model, batch)
-        if i == 0:
-            for j in range(5):
-                graph_order = batch.base_graphs[j].order()
-
-                plt.imshow(batch.base_graphs[j].adj().float().detach().cpu().numpy())
-                mlflow.log_figure(plt.gcf(), f"adj_{j}.png")
-
-                plt.imshow(
-                    torch.logical_xor(
-                        batch.base_graphs[j].adj(), batch.corrupted_graphs[j].adj()
-                    )
-                    .float()
-                    .detach()
-                    .cpu()
-                    .numpy()
-                )
-                mlflow.log_figure(plt.gcf(), f"diff_adj_{j}.png")
-
-                plt.imshow(
-                    similarity_matrices[j]
-                    .float()
-                    .detach()
-                    .cpu()
-                    .numpy()[:graph_order, :graph_order]
-                )
-                mlflow.log_figure(plt.gcf(), f"sim_{j}.png")
-
-                plt.imshow(
-                    torch.softmax(similarity_matrices[j], dim=1)
-                    .float()
-                    .detach()
-                    .cpu()
-                    .numpy()[:graph_order, :graph_order]
-                )
-                mlflow.log_figure(plt.gcf(), f"softmax_sim_{j}.png")
         masks = (
             batch.base_node_masks
         )  # The algorithm doesn't work with different size graph pairs
@@ -268,6 +265,66 @@ def compute_metrics(
         metrics_l["lap"].append(statistics.mean(lap))
 
     return {k: statistics.mean(v) for (k, v) in metrics_l.items()}
+
+
+@torch.no_grad
+def log_visualizations(
+    run,
+    model: torch.nn.Module,
+    batch: GMDatasetBatch,
+    prefix: Literal["train", "val"],
+    device: torch.device,
+    step: int,
+):
+    batch = batch.to(device)
+    similarity_matrices = siamese_similarity(model, batch)
+
+    for i in range(len(batch)):
+        graph_order = batch.base_graphs[i].order()
+
+        if step == 0:
+            dot_graph = compare_graphs(batch.base_graphs[i], batch.corrupted_graphs[i])
+            graph_path = unquote(
+                urlparse(run.info.artifact_uri + f"{prefix}/graph[{i}]").path
+            )
+            dot_graph.render(
+                "graph-comp",
+                directory=graph_path,
+                cleanup=True,
+                format="svg",
+            )
+
+            plt.imshow(batch.base_graphs[i].adj().float().detach().cpu().numpy())
+            mlflow.log_figure(plt.gcf(), f"{prefix}/graph[{i}]/adj.png")
+
+            plt.imshow(
+                torch.logical_xor(
+                    batch.base_graphs[i].adj(), batch.corrupted_graphs[i].adj()
+                )
+                .float()
+                .detach()
+                .cpu()
+                .numpy()
+            )
+            mlflow.log_figure(plt.gcf(), f"{prefix}/graph[{i}]/diff_adj.png")
+
+        plt.imshow(
+            similarity_matrices[i]
+            .float()
+            .detach()
+            .cpu()
+            .numpy()[:graph_order, :graph_order]
+        )
+        mlflow.log_figure(plt.gcf(), f"{prefix}/graph[{i}]/sim/{step}.png")
+
+        plt.imshow(
+            torch.softmax(similarity_matrices[i], dim=1)
+            .float()
+            .detach()
+            .cpu()
+            .numpy()[:graph_order, :graph_order]
+        )
+        mlflow.log_figure(plt.gcf(), f"{prefix}/graph[{i}]/softmax_sim/{step}.png")
 
 
 def train(
@@ -306,6 +363,9 @@ def train(
             batch_size=batch_size,
         )
 
+        visualization_batch_train = build_visualization_batch(train_dataset, 3)
+        visualization_batch_val = build_visualization_batch(val_dataset, 3)
+
         # Setting up the GNN model and loading it onto the gpu if needed
         gnn_model: torch.nn.Module
         if custom_model is not None:
@@ -336,10 +396,23 @@ def train(
             end_factor=end_factor,
         )
 
+        @torch.compile
+        def forward_pass(gnn_model: torch.nn.Module, batch: GMDatasetBatch) -> float:
+            similarity_matrices = siamese_similarity(gnn_model, batch)
+            masks = batch.base_node_masks
+
+            losses = compute_losses(similarity_matrices, masks)
+            loss = losses.mean()
+            loss.backward()
+            torch.nn.utils.clip_grad_value_(gnn_model.parameters(), grad_clip)
+            gnn_optimizer.step()
+            return float(loss.data)
+
         for epoch in range(epochs):
             mlflow.log_metric("learning_rate", gnn_scheduler.get_last_lr()[0], epoch)
 
-            # Metrics Logging
+            logging_start_time = time.time()
+            # Logging
             if epoch % log_frequency == 0:
                 gnn_model.eval()
                 train_metrics = {
@@ -355,6 +428,15 @@ def train(
                 mlflow.log_metrics(train_metrics, epoch)
                 mlflow.log_metrics(val_metrics, epoch)
 
+                log_visualizations(
+                    run, gnn_model, visualization_batch_train, "train", device, epoch
+                )
+                log_visualizations(
+                    run, gnn_model, visualization_batch_val, "val", device, epoch
+                )
+            mlflow.log_metric("log_time", time.time() - logging_start_time, epoch)
+
+            training_start_time = time.time()
             # Training loop
             gnn_model.train()
             batch: GMDatasetBatch
@@ -363,18 +445,15 @@ def train(
 
                 gnn_model.zero_grad()
 
-                similarity_matrices = siamese_similarity(gnn_model, batch)
-                masks = batch.base_node_masks
+                loss = forward_pass(gnn_model, batch)
 
-                losses = compute_losses(similarity_matrices, masks)
-                loss = losses.mean()
-                loss.backward()
-                torch.nn.utils.clip_grad_value_(gnn_model.parameters(), grad_clip)
-                gnn_optimizer.step()
                 mlflow.log_metric(
-                    "minibatch_loss", float(loss.data), step=i + epoch * batch_size
+                    "minibatch_loss",
+                    loss,
+                    step=i + epoch * len(train_loader),
                 )
             gnn_scheduler.step()
+            mlflow.log_metric("train_time", time.time() - training_start_time, epoch)
 
         checkpoint_path = unquote(
             urlparse(run.info.artifact_uri + "/checkpoint.safetensors").path

@@ -4,7 +4,7 @@ import statistics
 
 import click
 import torch
-from gnnco._core import GMDataset, GMDatasetItem
+from gnnco.graph_matching import GMDataset, GMDatasetItem
 
 
 @click.command()
