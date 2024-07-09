@@ -60,6 +60,10 @@ To know more about them run:
 
 Once you have a dataset, you can print key statistics with `gm-data-stats`
 
+## Training
+
+Use the `gm-train` command line tool to train a Siamese Graph Matching model. (run `gm-train --help` for more information and see scripts/train-siamese-gm.sh for an example)
+
 
 
 
