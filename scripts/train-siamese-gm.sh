@@ -1,17 +1,17 @@
 rye run gm-train \
-    --dataset  "/home/jlagesse/gnnco/data/ER[100,8,0.12]" \
-    --experiment "GAT ER[100,8,_]" \
-    --run-name "Large GAT ER[100,8,0.12]" \
+    --dataset  "/home/jlagesse/gnnco/data/KarateClub[0.02]" \
+    --experiment "KarateClub" \
+    --run-name "GAT KarateClub[0.02]" \
     --epochs 500 \
-    --batch-size 100 \
+    --batch-size 500 \
     --cuda \
-    --log-frequency 10 \
-    --no-profile \
+    --log-frequency 25 \
+    --profile \
     --model GAT \
-        --layers 8 \
+        --layers 3 \
         --heads 8 \
-        --features 256 \
-        --out-features 64 \
+        --features 32 \
+        --out-features 24 \
     --optimizer adam-one-cycle \
         --max-lr 3e-3 \
         --start-factor 5 \

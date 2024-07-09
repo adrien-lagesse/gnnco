@@ -158,6 +158,8 @@ psutil==5.9.8
     # via torch-geometric
 pyarrow==15.0.2
     # via mlflow
+pynvml==11.5.0
+    # via gnnco
 pyparsing==3.1.2
     # via matplotlib
     # via torch-geometric

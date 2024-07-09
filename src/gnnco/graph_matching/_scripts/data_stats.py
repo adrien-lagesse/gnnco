@@ -66,19 +66,19 @@ def gm_dataset_stats(dataset: pathlib.Path, text: bool):
         print("=" * 50)
         print(f"Number of graph pairs: {nb_graphs}")
         print(
-            f"Average base graph order: {statistics.mean(graphs_stats["base_order"])}   (stdev = {statistics.stdev(graphs_stats["base_order"])}, min = {min(graphs_stats["base_order"])}, max = {max(graphs_stats["base_order"])}"
+            f"Average base graph order: {statistics.mean(graphs_stats['base_order'])}   (stdev = {statistics.stdev(graphs_stats['base_order'])}, min = {min(graphs_stats['base_order'])}, max = {max(graphs_stats['base_order'])}"
         )
         print(
-            f"Average corrupted graph order: {statistics.mean(graphs_stats["corrupted_order"])}   (stdev = {statistics.stdev(graphs_stats["corrupted_order"])}, min = {min(graphs_stats["corrupted_order"])}, max = {max(graphs_stats["corrupted_order"])})"
+            f"Average corrupted graph order: {statistics.mean(graphs_stats['corrupted_order'])}   (stdev = {statistics.stdev(graphs_stats['corrupted_order'])}, min = {min(graphs_stats['corrupted_order'])}, max = {max(graphs_stats['corrupted_order'])})"
         )
         print(
-            f"Average base graph density: {statistics.mean(graphs_stats["base_density"])}   (stdev = {statistics.stdev(graphs_stats["base_density"])},, min = {min(graphs_stats["base_density"])}, max = {max(graphs_stats["base_density"])})"
+            f"Average base graph density: {statistics.mean(graphs_stats['base_density'])}   (stdev = {statistics.stdev(graphs_stats['base_density'])},, min = {min(graphs_stats['base_density'])}, max = {max(graphs_stats['base_density'])})"
         )
         print(
-            f"Average corrupted graph density: {statistics.mean(graphs_stats["corrupted_density"])}   (stdev = {statistics.stdev(graphs_stats["corrupted_density"])}, min = {min(graphs_stats["corrupted_density"])}, max = {max(graphs_stats["corrupted_density"])})"
+            f"Average corrupted graph density: {statistics.mean(graphs_stats['corrupted_density'])}   (stdev = {statistics.stdev(graphs_stats['corrupted_density'])}, min = {min(graphs_stats['corrupted_density'])}, max = {max(graphs_stats['corrupted_density'])})"
         )
         print(
-            f"Average pair correlatioin: {statistics.mean(graphs_stats["correlation"])}   (stdev = {statistics.stdev(graphs_stats["correlation"])}, min = {min(graphs_stats["correlation"])}, max = {max(graphs_stats["correlation"])})"
+            f"Average pair correlatioin: {statistics.mean(graphs_stats['correlation'])}   (stdev = {statistics.stdev(graphs_stats['correlation'])}, min = {min(graphs_stats['correlation'])}, max = {max(graphs_stats['correlation'])})"
         )
 
     def json_stats(training: bool = True) -> dict[str, float]:

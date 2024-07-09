@@ -13,6 +13,7 @@ dependencies = [
     "setuptools>=69.2.0",
     "graphviz>=0.20.3",
     "rdkit>=2023.9.5",
+    "pynvml>=11.5.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.11"

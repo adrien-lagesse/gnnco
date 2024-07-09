@@ -67,12 +67,16 @@ def bernoulli_corruption(
     directed: bool = False,
     self_loops: bool = False,
     type: Literal["full", "graph_normalized", "node_normalized"] = "node_normalized",
+    no_remove: bool = False
 ) -> BatchedDenseGraphs:
     """
     Apply a Bernoulli corruption to each graph in the batch
     """
 
     assert 0.0 <= noise <= 1, "'noise' must be between 0 and 1"
+    if no_remove:
+        noise = 2*noise
+        assert noise <= 1
 
     masks = batch.get_masks()
     stacked_adjacency_matrices = batch.get_stacked_adj()
@@ -108,7 +112,8 @@ def bernoulli_corruption(
         nonedge_noise[:, idx, idx] = False
 
     corrupted_batch = stacked_adjacency_matrices.clone()
-    corrupted_batch[stacked_adjacency_matrices & edge_noise] = False
+    if not no_remove:
+        corrupted_batch[stacked_adjacency_matrices & edge_noise] = False
     corrupted_batch[torch.logical_not(stacked_adjacency_matrices) & nonedge_noise] = (
         True
     )

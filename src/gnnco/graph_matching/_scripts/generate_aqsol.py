@@ -63,14 +63,21 @@ def graph_matching_aqsol(
                     [base_graph_sparse.order(), base_graph_sparse.order()],
                     dtype=torch.long,
                 )
-                base_graphs_dict[str(i)] = base_graph_sparse.edge_index()
                 base_graph_dense = base_graph_sparse.to_dense()
-                corrupted_graph_dense = bernoulli_corruption(
+
+                base_graphs_dict[str(i)] = bernoulli_corruption(
                     BatchedDenseGraphs.from_graphs([base_graph_dense]),
                     noise,
-                    type="graph_normalized",
-                )[0]
-                corrupted_graphs_dict[str(i)] = corrupted_graph_dense.edge_index()
+                    type="node_normalized",
+                    no_remove=True
+                )[0].edge_index()
+
+                corrupted_graphs_dict[str(i)] = bernoulli_corruption(
+                    BatchedDenseGraphs.from_graphs([base_graph_dense]),
+                    noise,
+                    type="node_normalized",
+                    no_remove=True
+                )[0].edge_index()
 
         save_file(
             orders_dict,

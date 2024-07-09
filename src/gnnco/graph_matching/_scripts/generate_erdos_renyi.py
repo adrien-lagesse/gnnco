@@ -51,7 +51,7 @@ def graph_matching_erdos_renyi(
             p_edge = density / (order - 1)
             base_graphs = erdos_renyi(N, order, p_edge)
             corrupted_graphs = bernoulli_corruption(
-                base_graphs, noise=noise, type="full"
+                base_graphs, noise=noise, type="node_normalized"
             )
 
         save_file(

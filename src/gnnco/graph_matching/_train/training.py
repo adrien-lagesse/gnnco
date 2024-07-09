@@ -24,6 +24,7 @@ from .utils import (
     setup_data,
 )
 
+# @torch.compile
 # def siamese_similarity(
 #         model: torch.nn.Module, batch: GMDatasetBatch
 # )-> torch.FloatTensor:
@@ -36,15 +37,24 @@ from .utils import (
 #     )
 
 #     alignement_similarities = torch.bmm(
-#         embeddings_base.x().reshape((len(batch), -1, embeddings_base.dim())),
+#         embeddings_base.x().reshape((
+#                 batch.base_node_masks.shape[0],
+#                 batch.base_node_masks.shape[1],
+#                 embeddings_base.dim(),
+#             )),
 #         embeddings_corrupted.x().reshape(
-#             (len(batch), -1, embeddings_corrupted.dim())
+#             (
+#                 batch.corrupted_node_masks.shape[0],
+#                 batch.corrupted_node_masks.shape[1],
+#                 embeddings_corrupted.dim(),
+#             )
 #         ).transpose(1, 2),
 #     )
 
 #     return alignement_similarities
 
 
+#@torch.compile
 def siamese_similarity(
     model: torch.nn.Module, batch: GMDatasetBatch
 ) -> torch.FloatTensor:
@@ -74,11 +84,20 @@ def siamese_similarity(
     padded_corrupted = padded_corrupted.masked_scatter(
         batch.corrupted_node_masks.reshape(-1, 1), embeddings_corrupted.x()
     )
-
     alignement_similarities = torch.bmm(
-        padded_base.reshape((len(batch), -1, embeddings_base.dim())),
+        padded_base.reshape(
+            (
+                batch.base_node_masks.shape[0],
+                batch.base_node_masks.shape[1],
+                embeddings_base.dim(),
+            )
+        ),
         padded_corrupted.reshape(
-            (len(batch), -1, embeddings_corrupted.dim())
+            (
+                batch.corrupted_node_masks.shape[0],
+                batch.corrupted_node_masks.shape[1],
+                embeddings_corrupted.dim(),
+            )
         ).transpose(1, 2),
     )
 
@@ -105,6 +124,7 @@ def __compute_losses(
     return loss
 
 
+#@torch.compile
 def compute_losses(
     similarity_matrices: torch.FloatTensor, masks: torch.BoolTensor
 ) -> torch.FloatTensor:
@@ -363,8 +383,8 @@ def train(
             batch_size=batch_size,
         )
 
-        visualization_batch_train = build_visualization_batch(train_dataset, 3)
-        visualization_batch_val = build_visualization_batch(val_dataset, 3)
+        visualization_batch_train = build_visualization_batch(train_dataset, 6)
+        visualization_batch_val = build_visualization_batch(val_dataset, 6)
 
         # Setting up the GNN model and loading it onto the gpu if needed
         gnn_model: torch.nn.Module
@@ -396,7 +416,6 @@ def train(
             end_factor=end_factor,
         )
 
-        @torch.compile
         def forward_pass(gnn_model: torch.nn.Module, batch: GMDatasetBatch) -> float:
             similarity_matrices = siamese_similarity(gnn_model, batch)
             masks = batch.base_node_masks
@@ -411,8 +430,8 @@ def train(
         for epoch in range(epochs):
             mlflow.log_metric("learning_rate", gnn_scheduler.get_last_lr()[0], epoch)
 
-            logging_start_time = time.time()
             # Logging
+            logging_start_time = time.time()
             if epoch % log_frequency == 0:
                 gnn_model.eval()
                 train_metrics = {
@@ -436,8 +455,8 @@ def train(
                 )
             mlflow.log_metric("log_time", time.time() - logging_start_time, epoch)
 
-            training_start_time = time.time()
             # Training loop
+            training_start_time = time.time()
             gnn_model.train()
             batch: GMDatasetBatch
             for i, batch in enumerate(train_loader):

@@ -199,6 +199,8 @@ pyarrow==15.0.2
     # via mlflow
 pygments==2.17.2
     # via ipython
+pynvml==11.5.0
+    # via gnnco
 pyparsing==3.1.2
     # via matplotlib
     # via torch-geometric
