@@ -70,7 +70,7 @@ def graph_matching_karate_club(
                 corrupted_graph_dense = bernoulli_corruption(
                     BatchedDenseGraphs.from_graphs([base_graph_dense]),
                     noise,
-                    type="node_normalized"
+                    type="node_normalized",
                 )[0]
                 corrupted_graphs_dict[str(i)] = corrupted_graph_dense.edge_index()
 

@@ -48,29 +48,30 @@ class GMDatasetBatch(NamedTuple):
 
 
 def collate_fn(
-        batch_l: list[GMDatasetItem],
-    ) -> GMDatasetBatch:
-        base_batch: BatchedSparseGraphs = BatchedSparseGraphs.from_graphs(
-            [item.base_graph for item in batch_l]
-        )
-        corrupted_batch: BatchedSparseGraphs = BatchedSparseGraphs.from_graphs(
-            [item.corrupted_graph for item in batch_l]
-        )
-        base_signal_batch: BatchedSignals = BatchedSignals.from_signals(
-            [torch.ones((item.base_graph.order(), 1)) for item in batch_l]
-        )
-        corrupted_signal_batch: BatchedSignals = BatchedSignals.from_signals(
-            [torch.ones((item.corrupted_graph.order(), 1)) for item in batch_l]
-        )
+    batch_l: list[GMDatasetItem],
+) -> GMDatasetBatch:
+    base_batch: BatchedSparseGraphs = BatchedSparseGraphs.from_graphs(
+        [item.base_graph for item in batch_l]
+    )
+    corrupted_batch: BatchedSparseGraphs = BatchedSparseGraphs.from_graphs(
+        [item.corrupted_graph for item in batch_l]
+    )
+    base_signal_batch: BatchedSignals = BatchedSignals.from_signals(
+        [torch.ones((item.base_graph.order(), 1)) for item in batch_l]
+    )
+    corrupted_signal_batch: BatchedSignals = BatchedSignals.from_signals(
+        [torch.ones((item.corrupted_graph.order(), 1)) for item in batch_l]
+    )
 
-        return GMDatasetBatch(
-            base_graphs=base_batch,
-            base_signals=base_signal_batch,
-            base_node_masks=base_batch.get_masks(),
-            corrupted_graphs=corrupted_batch,
-            corrupted_signals=corrupted_signal_batch,
-            corrupted_node_masks=corrupted_batch.get_masks(),
-        )
+    return GMDatasetBatch(
+        base_graphs=base_batch,
+        base_signals=base_signal_batch,
+        base_node_masks=base_batch.get_masks(),
+        corrupted_graphs=corrupted_batch,
+        corrupted_signals=corrupted_signal_batch,
+        corrupted_node_masks=corrupted_batch.get_masks(),
+    )
+
 
 def setup_data(
     *,
@@ -111,8 +112,10 @@ def setup_data(
 
     return train_dataset, val_dataset, train_loader, val_loader
 
+
 def build_visualization_batch(dataset: GMDataset, batch_size: int):
     return collate_fn([dataset[i] for i in range(batch_size)])
+
 
 def model_factory(
     *,

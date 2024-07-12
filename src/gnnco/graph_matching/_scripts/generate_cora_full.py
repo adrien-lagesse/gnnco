@@ -4,7 +4,7 @@ import pathlib
 import click
 import torch
 from gnnco import BatchedDenseGraphs, SparseGraph
-from gnnco.random import bernoulli_corruption
+from gnnco.random import bernoulli_corruption, bfs_sub_sampling
 from safetensors.torch import save_file
 from torch_geometric.datasets import CoraFull
 from tqdm.auto import tqdm
@@ -23,6 +23,9 @@ from tqdm.auto import tqdm
     "--n-val-graphs", required=True, type=int, help="Number of validation graphs"
 )
 @click.option(
+    "--order", required=True, type=int, help="Order of the graphs to generate"
+)
+@click.option(
     "--noise",
     required=True,
     type=float,
@@ -34,6 +37,7 @@ def graph_matching_cora_full(
     output_dir: str | os.PathLike,
     n_graphs: int,
     n_val_graphs: int,
+    order: int,
     noise: float,
     cuda: bool,
 ):
@@ -53,25 +57,30 @@ def graph_matching_cora_full(
 
         device = torch.device("cuda" if cuda else "cpu")
         with device:
-            base_graph_sparse = SparseGraph(
+            corafull_graph = SparseGraph(
                 senders=edge_index[0].long(),
                 receivers=edge_index[1].long(),
                 order=num_nodes,
             ).to(device)
 
-            base_graphs_dict["0"] = base_graph_sparse.edge_index()
-
-            base_graph_dense = base_graph_sparse.to_dense()
+            subsampled_graphs = bfs_sub_sampling(corafull_graph, N, order)
 
             for i in tqdm(range(N), total=N):
+                base_graph_sparse = subsampled_graphs[i]
+
+                base_graphs_dict[str(i)] = base_graph_sparse.edge_index()
+
                 orders_dict[str(i)] = torch.tensor(
                     [base_graph_sparse.order(), base_graph_sparse.order()],
                     dtype=torch.long,
                 )
+
+                base_graph_dense = base_graph_sparse.to_dense()
+
                 corrupted_graph_dense = bernoulli_corruption(
                     BatchedDenseGraphs.from_graphs([base_graph_dense]),
                     noise,
-                    type="node_normalized"
+                    type="node_normalized",
                 )[0]
                 corrupted_graphs_dict[str(i)] = corrupted_graph_dense.edge_index()
 

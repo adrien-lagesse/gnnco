@@ -13,7 +13,6 @@ from safetensors.torch import save_model
 from scipy.optimize import linear_sum_assignment
 
 from gnnco._core import BatchedSignals
-from gnnco.visualization import compare_graphs
 
 from .utils import (
     GMDatasetBatch,
@@ -54,7 +53,7 @@ from .utils import (
 #     return alignement_similarities
 
 
-#@torch.compile
+# @torch.compile
 def siamese_similarity(
     model: torch.nn.Module, batch: GMDatasetBatch
 ) -> torch.FloatTensor:
@@ -124,7 +123,7 @@ def __compute_losses(
     return loss
 
 
-#@torch.compile
+# @torch.compile
 def compute_losses(
     similarity_matrices: torch.FloatTensor, masks: torch.BoolTensor
 ) -> torch.FloatTensor:
@@ -303,16 +302,16 @@ def log_visualizations(
         graph_order = batch.base_graphs[i].order()
 
         if step == 0:
-            dot_graph = compare_graphs(batch.base_graphs[i], batch.corrupted_graphs[i])
-            graph_path = unquote(
-                urlparse(run.info.artifact_uri + f"{prefix}/graph[{i}]").path
-            )
-            dot_graph.render(
-                "graph-comp",
-                directory=graph_path,
-                cleanup=True,
-                format="svg",
-            )
+            # dot_graph = compare_graphs(batch.base_graphs[i], batch.corrupted_graphs[i])
+            # graph_path = unquote(
+            #     urlparse(run.info.artifact_uri + f"{prefix}/graph[{i}]").path
+            # )
+            # dot_graph.render(
+            #     "graph-comp",
+            #     directory=graph_path,
+            #     cleanup=True,
+            #     format="svg",
+            # )
 
             plt.imshow(batch.base_graphs[i].adj().float().detach().cpu().numpy())
             mlflow.log_figure(plt.gcf(), f"{prefix}/graph[{i}]/adj.png")
@@ -383,8 +382,8 @@ def train(
             batch_size=batch_size,
         )
 
-        visualization_batch_train = build_visualization_batch(train_dataset, 6)
-        visualization_batch_val = build_visualization_batch(val_dataset, 6)
+        visualization_batch_train = build_visualization_batch(train_dataset, 1)
+        visualization_batch_val = build_visualization_batch(val_dataset, 1)
 
         # Setting up the GNN model and loading it onto the gpu if needed
         gnn_model: torch.nn.Module

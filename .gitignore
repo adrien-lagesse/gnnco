@@ -137,5 +137,4 @@ dmypy.json
 mlruns/
 data/
 sbatch-output
-poster
 .tmp

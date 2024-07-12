@@ -105,6 +105,25 @@ class SparseGraph:
         """
         return BatchedSparseGraphs.from_graphs([self])
 
+    def node_sub_sample(self, nodes_sample: torch.LongTensor) -> Self:
+        mask = torch.logical_and(
+            torch.isin(self._senders, nodes_sample),
+            torch.isin(self._receivers, nodes_sample),
+        )
+
+        new_senders = self._senders[mask]
+        new_receivers = self._receivers[mask]
+
+        for i, v in enumerate(torch.unique_consecutive(new_senders)):
+            new_senders[new_senders == v] = i
+            new_receivers[new_receivers == v] = i
+
+        return SparseGraph(
+            new_senders,
+            new_receivers,
+            max(int(torch.max(new_senders)), int(torch.max(new_receivers))) + 1,
+        )
+
 
 class BatchedSparseGraphs:
     """

@@ -1,8 +1,10 @@
 {
     "files.exclude": {
         ".ruff_cache": true,
+        ".tmp": true,
         ".venv": true,
         ".vscode": true,
-        "**/__pycache__": true
+        "**/__pycache__": true,
+        "mlruns": true
     }
 }

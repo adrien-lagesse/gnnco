@@ -2,11 +2,13 @@
 Module providing random operations linked to graphs
 """
 
+import random
 from typing import Literal
 
 import torch
+from tqdm.auto import tqdm
 
-from gnnco._core import BatchedDenseGraphs
+from gnnco._core import BatchedDenseGraphs, BatchedSparseGraphs, SparseGraph
 
 
 def erdos_renyi(
@@ -67,7 +69,7 @@ def bernoulli_corruption(
     directed: bool = False,
     self_loops: bool = False,
     type: Literal["full", "graph_normalized", "node_normalized"] = "node_normalized",
-    no_remove: bool = False
+    no_remove: bool = False,
 ) -> BatchedDenseGraphs:
     """
     Apply a Bernoulli corruption to each graph in the batch
@@ -75,7 +77,7 @@ def bernoulli_corruption(
 
     assert 0.0 <= noise <= 1, "'noise' must be between 0 and 1"
     if no_remove:
-        noise = 2*noise
+        noise = 2 * noise
         assert noise <= 1
 
     masks = batch.get_masks()
@@ -122,3 +124,49 @@ def bernoulli_corruption(
         corrupted_batch,
         batch.orders().clone(),
     )
+
+
+def uniform_sub_sampling(
+    graph: SparseGraph, n: int, num_nodes: int
+) -> BatchedSparseGraphs:
+    order = graph.order()
+
+    graphs_l: list[SparseGraph] = []
+    for _ in range(n):
+        sampled_indices = torch.LongTensor(random.sample(range(0, order), num_nodes))
+        graphs_l.append(graph.node_sub_sample(sampled_indices))
+
+    return BatchedSparseGraphs.from_graphs(graphs_l)
+
+
+def bfs_sub_sampling(
+    graph: SparseGraph, n: int, num_nodes: int, *, p: float = 1
+) -> BatchedSparseGraphs:
+    (senders, receivers) = graph.edge_index()
+    graphs_l: list[SparseGraph] = []
+
+    for _ in tqdm(range(n), total=n):
+        base_node = random.randint(0, graph.order() - 1)
+        kept_nodes: set[int] = {base_node}
+        while len(kept_nodes) < num_nodes:
+            new_nodes = set(
+                receivers[
+                    torch.isin(senders, torch.LongTensor(list(kept_nodes)))
+                ].tolist()
+            ).difference(kept_nodes)
+            if len(new_nodes) == 0:
+                kept_nodes.add(random.randint(0, graph.order() - 1))
+            else:
+                new_nodes = random.sample(
+                    sorted(new_nodes), max(int(p * len(new_nodes)), 1)
+                )
+                if len(new_nodes) + len(kept_nodes) < num_nodes:
+                    kept_nodes = kept_nodes.union(new_nodes)
+                else:
+                    kept_nodes = kept_nodes.union(
+                        random.sample(sorted(new_nodes), num_nodes - len(kept_nodes))
+                    )
+
+        graphs_l.append(graph.node_sub_sample(torch.LongTensor(list(kept_nodes))))
+
+    return BatchedSparseGraphs.from_graphs(graphs_l)

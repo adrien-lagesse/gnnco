@@ -69,14 +69,14 @@ def graph_matching_aqsol(
                     BatchedDenseGraphs.from_graphs([base_graph_dense]),
                     noise,
                     type="node_normalized",
-                    no_remove=True
+                    no_remove=True,
                 )[0].edge_index()
 
                 corrupted_graphs_dict[str(i)] = bernoulli_corruption(
                     BatchedDenseGraphs.from_graphs([base_graph_dense]),
                     noise,
                     type="node_normalized",
-                    no_remove=True
+                    no_remove=True,
                 )[0].edge_index()
 
         save_file(

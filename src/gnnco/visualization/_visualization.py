@@ -94,7 +94,7 @@ def compare_graphs(
         dot.graph_attr = {"size": str(size)}
     else:
         dot.graph_attr = {"size": str(size), "layout": "neato"}
-        
+
     dot.node_attr = {
         "label": "",
         "shape": "circle",

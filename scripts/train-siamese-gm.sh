@@ -1,17 +1,17 @@
 rye run gm-train \
-    --dataset  "/home/jlagesse/gnnco/data/KarateClub[0.02]" \
-    --experiment "KarateClub" \
-    --run-name "GAT KarateClub[0.02]" \
+    --dataset  "/home/jlagesse/gnnco/data/CoraFull[0.12]" \
+    --experiment "CoraFull" \
+    --run-name "GAT CoraFull[0.12]" \
     --epochs 500 \
-    --batch-size 500 \
+    --batch-size 200 \
     --cuda \
     --log-frequency 25 \
     --profile \
     --model GAT \
-        --layers 3 \
+        --layers 5 \
         --heads 8 \
-        --features 32 \
-        --out-features 24 \
+        --features 128 \
+        --out-features 128 \
     --optimizer adam-one-cycle \
         --max-lr 3e-3 \
         --start-factor 5 \
