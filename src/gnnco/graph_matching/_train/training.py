@@ -174,7 +174,6 @@ class AccuraciesResults(NamedTuple):
 #     )
 
 
-@torch.no_grad
 def compute_accuracies(
     alignement_similarities: torch.FloatTensor, masks: torch.BoolTensor
 ) -> AccuraciesResults:
@@ -226,14 +225,13 @@ class LAPResults(NamedTuple):
     lap: list[float]
 
 
-@torch.no_grad
 def compute_lap(
     alignement_similarities: torch.FloatTensor, masks: torch.BoolTensor
 ) -> LAPResults:
     permuations = []
     lap = []
     for similarity_matrix, mask in zip(alignement_similarities, masks):
-        similarity_matrix = torch.softmax(similarity_matrix[mask], dim=-1).cpu().numpy()
+        similarity_matrix = torch.softmax(similarity_matrix[mask], dim=-1).detach().cpu().numpy()
         idx, permutation_pred = linear_sum_assignment(similarity_matrix, maximize=True)
         permuations.append(
             torch.tensor(
@@ -247,13 +245,11 @@ def compute_lap(
     return LAPResults(permutations=permuations, lap=lap)
 
 
-@torch.no_grad
 def compute_metrics(
     model: torch.nn.Module,
     loader: torch.utils.data.DataLoader,
     device: torch.device,
 ) -> dict[str, float]:
-    model.eval()
     metrics_l: dict[str, list[float]] = {
         "loss": [],
         "lap": [],

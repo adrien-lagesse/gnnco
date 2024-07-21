@@ -17,19 +17,19 @@ noises=(0.02 0.08 0.12 0.18 0.24 0.3 0.35)
 echo ${noises[${SLURM_ARRAY_TASK_ID}]}
 
 rye run gm-train \
-    --dataset  "/home/jlagesse/gnnco/data/CoraFull[100,${noises[${SLURM_ARRAY_TASK_ID}]}]" \
-    --experiment "CoraFull" \
-    --run-name "GAT CoraFull[${noises[${SLURM_ARRAY_TASK_ID}]}]" \
+    --dataset  "/home/jlagesse/gnnco/data/PCQM4Mv2[${noises[${SLURM_ARRAY_TASK_ID}]}]" \
+    --experiment "PCQM4Mv2" \
+    --run-name "GAT-Large PCQM4Mv2[${noises[${SLURM_ARRAY_TASK_ID}]}]" \
     --epochs 500 \
-    --batch-size 200 \
+    --batch-size 1000 \
     --cuda \
     --log-frequency 25 \
     --profile \
     --model GAT \
-        --layers 5 \
-        --heads 8 \
-        --features 128 \
-        --out-features 128 \
+        --layers 6 \
+        --heads 12 \
+        --features 240 \
+        --out-features 64 \
     --optimizer adam-one-cycle \
         --max-lr 3e-3 \
         --start-factor 5 \

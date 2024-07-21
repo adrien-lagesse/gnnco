@@ -119,7 +119,7 @@ def build_visualization_batch(dataset: GMDataset, batch_size: int):
 
 def model_factory(
     *,
-    model: Literal["GCN", "GIN", "GAT", "GatedGCN", "GATv2"],
+    model: Literal["GCN", "GIN", "GAT", "GatedGCN", "GATv2", "LaplacianEmbeddings"],
     layers: int | None,
     heads: int | None,
     features: int | None,

@@ -13,7 +13,7 @@ def plot_graph(
     coordinates: dict[int, tuple[float, float]] | None = None,
 ) -> graphviz.Graph:
     dot = graphviz.Graph(strict=True)
-    dot.graph_attr = {"size": str(size), "layout": "neato"}
+    dot.graph_attr = {"size": str(size), "layout": "neato", "overlap": "scale"}
     dot.node_attr = {
         "label": "",
         "shape": "circle",

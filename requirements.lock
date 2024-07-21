@@ -84,6 +84,8 @@ joblib==1.3.2
     # via scikit-learn
 kiwisolver==1.4.5
     # via matplotlib
+littleutils==0.2.4
+    # via outdated
 mako==1.3.2
     # via alembic
 markdown==3.6
@@ -108,6 +110,7 @@ numpy==1.26.4
     # via gnnco
     # via matplotlib
     # via mlflow
+    # via ogb
     # via pandas
     # via pyarrow
     # via rdkit
@@ -142,6 +145,10 @@ nvidia-nvjitlink-cu12==12.4.99
     # via nvidia-cusparse-cu12
 nvidia-nvtx-cu12==12.1.105
     # via torch
+ogb==1.3.6
+    # via gnnco
+outdated==0.2.2
+    # via ogb
 packaging==23.2
     # via docker
     # via gunicorn
@@ -149,6 +156,7 @@ packaging==23.2
     # via mlflow
 pandas==2.2.1
     # via mlflow
+    # via ogb
 pillow==10.2.0
     # via matplotlib
     # via rdkit
@@ -178,11 +186,13 @@ rdkit==2023.9.5
 requests==2.31.0
     # via docker
     # via mlflow
+    # via outdated
     # via torch-geometric
 safetensors==0.4.2
     # via gnnco
 scikit-learn==1.4.1.post1
     # via mlflow
+    # via ogb
     # via torch-geometric
 scipy==1.12.0
     # via gnnco
@@ -191,7 +201,9 @@ scipy==1.12.0
     # via torch-geometric
 setuptools==69.2.0
     # via gnnco
+    # via outdated
 six==1.16.0
+    # via ogb
     # via python-dateutil
     # via querystring-parser
 smmap==5.0.1
@@ -207,9 +219,11 @@ threadpoolctl==3.4.0
     # via scikit-learn
 torch==2.2.2
     # via gnnco
+    # via ogb
 torch-geometric==2.5.2
     # via gnnco
 tqdm==4.66.2
+    # via ogb
     # via torch-geometric
 triton==2.2.0
     # via torch
@@ -221,6 +235,7 @@ tzdata==2024.1
     # via pandas
 urllib3==2.2.1
     # via docker
+    # via ogb
     # via requests
 werkzeug==3.0.2
     # via flask

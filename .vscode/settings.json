@@ -6,5 +6,14 @@
         ".vscode": true,
         "**/__pycache__": true,
         "mlruns": true
+    },
+    "python.languageServer": "Pylance",
+    "ruff.nativeServer": true,
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "notebook.defaultFormatter": "charliermarsh.ruff",
+    "ruff.trace.server": "messages",
+    "remote.autoForwardPorts": false,
+    "[toml]": {
+        "editor.defaultFormatter": "tamasfe.even-better-toml"
     }
 }

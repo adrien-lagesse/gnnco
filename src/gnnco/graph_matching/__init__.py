@@ -10,6 +10,7 @@ __all__ = [
     "siamese_similarity",
     "train",
     "GMDatasetBatch",
+    "get_kwargs",
     "model_factory",
     "optimizer_factory",
     "setup_data",
@@ -26,4 +27,10 @@ from ._train.training import (
     siamese_similarity,
     train,
 )
-from ._train.utils import GMDatasetBatch, model_factory, optimizer_factory, setup_data
+from ._train.utils import (
+    GMDatasetBatch,
+    get_kwargs,
+    model_factory,
+    optimizer_factory,
+    setup_data,
+)
