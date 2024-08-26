@@ -79,8 +79,10 @@ class EncoderLayer(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, d_model, num_heads, num_layers, d_ff, dropout):
+    def __init__(self, input_dim, d_model, num_heads, num_layers, d_ff, dropout):
         super(Transformer, self).__init__()
+
+        self.linear_in = nn.Linear(input_dim, d_model)
 
         self.encoder_layers = nn.ModuleList([EncoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)])
 
@@ -91,9 +93,9 @@ class Transformer(nn.Module):
         src_embedded = self.dropout(x)
 
         enc_output: torch.Tensor = src_embedded
+        enc_output = self.linear_in(enc_output)
         for enc_layer in self.encoder_layers:
             enc_output = enc_layer(enc_output, mask)
-
         output = torch.mean(enc_output, dim=1) # (batch_len, max_nb_atoms, features) -> (batch_len, features)
         output = self.fc(output)
         return output.flatten()
