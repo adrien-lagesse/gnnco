@@ -56,7 +56,7 @@ def collate_fn(elems: list[PygData]) -> AqsolBatch:
 
 
 def setup_data(batch_size: int) -> tuple[DataLoader, DataLoader]:
-    AQSOL_ROOT = ".tmp/AQSOL"
+    AQSOL_ROOT = ".tmp"
     train_dataset = AQSOL(root=AQSOL_ROOT, split="train")
     validation_dataset = AQSOL(root=AQSOL_ROOT, split="val")
 
@@ -66,9 +66,9 @@ def setup_data(batch_size: int) -> tuple[DataLoader, DataLoader]:
         collate_fn=collate_fn,
         pin_memory=True,
         shuffle=True,
-        num_workers=4,
-        prefetch_factor=8,
-        persistent_workers=True,
+        num_workers=0,
+        #prefetch_factor=8,
+        #persistent_workers=True,
     )
 
     val_loader = DataLoader(
@@ -77,9 +77,9 @@ def setup_data(batch_size: int) -> tuple[DataLoader, DataLoader]:
         collate_fn=collate_fn,
         pin_memory=True,
         shuffle=True,
-        num_workers=4,
-        prefetch_factor=8,
-        persistent_workers=True,
+        num_workers=0,
+        #prefetch_factor=8,
+        #persistent_workers=True,
     )
 
     return train_loader, val_loader

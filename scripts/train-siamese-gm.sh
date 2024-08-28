@@ -1,7 +1,7 @@
 rye run gm-train \
-    --dataset  "/home/jlagesse/gnnco/data/CoraFull[0.12]" \
+    --dataset  "/home/jlagesse/gnnco/data/CoraFull[500,0.12]" \
     --experiment "CoraFull" \
-    --run-name "GAT CoraFull[0.12]" \
+    --run-name "GAT CoraFull[500,0.12]" \
     --epochs 500 \
     --batch-size 200 \
     --cuda \
